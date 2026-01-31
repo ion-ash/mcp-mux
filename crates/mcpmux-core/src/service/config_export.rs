@@ -151,11 +151,13 @@ pub enum ClaudeServerConfig {
     },
 }
 
+/// Type alias for credential resolver function
+pub type CredentialResolver = Box<dyn Fn(&str, &Uuid) -> Option<HashMap<String, String>> + Send + Sync>;
+
 /// Configuration exporter
 pub struct ConfigExporter {
     /// Credential resolver function
-    credential_resolver:
-        Option<Box<dyn Fn(&str, &Uuid) -> Option<HashMap<String, String>> + Send + Sync>>,
+    credential_resolver: Option<CredentialResolver>,
 }
 
 impl Default for ConfigExporter {

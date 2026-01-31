@@ -128,7 +128,7 @@ impl InstalledServer {
     /// Get display name (from cached definition or server_id fallback)
     pub fn display_name(&self) -> &str {
         self.server_name.as_deref()
-            .unwrap_or_else(|| self.server_id.split('/').last().unwrap_or(&self.server_id))
+            .unwrap_or_else(|| self.server_id.split('/').next_back().unwrap_or(&self.server_id))
     }
 
     /// Set input values

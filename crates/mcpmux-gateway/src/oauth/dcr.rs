@@ -99,6 +99,7 @@ pub struct DcrResponse {
 
 /// Helper to build InboundClient from DcrRequest
 /// Eliminates ~100 lines of duplication between update and create paths
+#[allow(clippy::too_many_arguments)]
 fn build_inbound_client_from_request(
     request: &DcrRequest,
     client_id: String,

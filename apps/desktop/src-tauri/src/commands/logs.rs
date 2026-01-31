@@ -54,7 +54,7 @@ pub async fn get_server_logs(
     let space_id = get_default_space_id(&state).await?;
     
     // Parse level filter
-    let level = level_filter.and_then(|s| LogLevel::from_str(&s));
+    let level = level_filter.and_then(|s| LogLevel::parse(&s));
     
     // Get logs
     let logs = state

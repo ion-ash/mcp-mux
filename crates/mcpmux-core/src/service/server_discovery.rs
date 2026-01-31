@@ -247,6 +247,7 @@ impl ServerDiscoveryService {
                     }
                 }
                 Ok(FetchBundleResult::Updated { bundle, etag }) => {
+                    let bundle = *bundle; // Unbox the bundle
                     info!(
                         "Loaded {} servers from Registry API (v{}, updated {})",
                         bundle.servers.len(),

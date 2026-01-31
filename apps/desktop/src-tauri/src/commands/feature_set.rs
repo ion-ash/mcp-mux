@@ -376,7 +376,7 @@ pub async fn add_feature_set_member(
     let mode = input
         .mode
         .as_deref()
-        .and_then(MemberMode::from_str)
+        .and_then(MemberMode::parse)
         .unwrap_or(MemberMode::Include);
 
     // Check for duplicates
@@ -518,7 +518,7 @@ pub async fn set_feature_set_members(
             let mode = input
                 .mode
                 .as_deref()
-                .and_then(MemberMode::from_str)
+                .and_then(MemberMode::parse)
                 .unwrap_or(MemberMode::Include);
 
             FeatureSetMember {

@@ -31,7 +31,7 @@ impl FeatureType {
         }
     }
 
-    pub fn from_str(s: &str) -> Option<Self> {
+    pub fn parse(s: &str) -> Option<Self> {
         match s {
             "tool" => Some(Self::Tool),
             "prompt" => Some(Self::Prompt),
@@ -219,7 +219,7 @@ impl SqliteServerFeatureRepository {
             id: row.get(0)?,
             space_id: row.get(1)?,
             server_id: row.get(2)?,
-            feature_type: FeatureType::from_str(&row.get::<_, String>(3)?)
+            feature_type: FeatureType::parse(&row.get::<_, String>(3)?)
                 .unwrap_or(FeatureType::Tool),
             feature_name: row.get(4)?,
             display_name: row.get(5)?,

@@ -37,7 +37,7 @@ impl FeatureSetType {
         }
     }
 
-    pub fn from_str(s: &str) -> Option<Self> {
+    pub fn parse(s: &str) -> Option<Self> {
         match s {
             "all" => Some(Self::All),
             "default" => Some(Self::Default),
@@ -67,7 +67,7 @@ impl MemberMode {
         }
     }
 
-    pub fn from_str(s: &str) -> Option<Self> {
+    pub fn parse(s: &str) -> Option<Self> {
         match s {
             "include" => Some(Self::Include),
             "exclude" => Some(Self::Exclude),
@@ -95,7 +95,7 @@ impl MemberType {
         }
     }
 
-    pub fn from_str(s: &str) -> Option<Self> {
+    pub fn parse(s: &str) -> Option<Self> {
         match s {
             "feature_set" => Some(Self::FeatureSet),
             "feature" => Some(Self::Feature),

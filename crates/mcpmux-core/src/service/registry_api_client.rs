@@ -108,7 +108,7 @@ pub struct HomeConfig {
 pub enum FetchBundleResult {
     /// New or updated bundle received
     Updated {
-        bundle: RegistryBundle,
+        bundle: Box<RegistryBundle>,
         etag: Option<String>,
     },
     /// Bundle unchanged (304 Not Modified)
@@ -206,7 +206,7 @@ impl RegistryApiClient {
             etag
         );
 
-        Ok(FetchBundleResult::Updated { bundle, etag })
+        Ok(FetchBundleResult::Updated { bundle: Box::new(bundle), etag })
     }
 }
 

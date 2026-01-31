@@ -42,6 +42,7 @@ pub struct HttpTransport {
 }
 
 impl HttpTransport {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         url: String,
         headers: HashMap<String, String>,

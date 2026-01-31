@@ -97,7 +97,7 @@ pub async fn list_server_features_by_type(
     include_unavailable: Option<bool>,
     state: State<'_, AppState>,
 ) -> Result<Vec<ServerFeatureResponse>, String> {
-    let ft = FeatureType::from_str(&feature_type)
+    let ft = FeatureType::parse(&feature_type)
         .ok_or_else(|| format!("Invalid feature type: {}", feature_type))?;
 
     let features = state

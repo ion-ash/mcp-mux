@@ -41,7 +41,7 @@ impl RegistrationType {
         }
     }
 
-    pub fn from_str(s: &str) -> Option<Self> {
+    pub fn parse(s: &str) -> Option<Self> {
         match s {
             "cimd" => Some(RegistrationType::Cimd),
             "dcr" => Some(RegistrationType::Dcr),
@@ -123,7 +123,7 @@ impl TokenType {
         }
     }
 
-    fn from_str(s: &str) -> Option<Self> {
+    fn parse(s: &str) -> Option<Self> {
         match s {
             "access" => Some(TokenType::Access),
             "refresh" => Some(TokenType::Refresh),
@@ -178,7 +178,7 @@ impl InboundClientRepository {
         
         Ok(InboundClient {
             client_id: row.get(0)?,
-            registration_type: RegistrationType::from_str(&registration_type_str)
+            registration_type: RegistrationType::parse(&registration_type_str)
                 .unwrap_or(RegistrationType::Dcr),
             client_name: row.get(2)?,
             client_alias: row.get(3)?,
@@ -614,7 +614,7 @@ impl InboundClientRepository {
             Ok(TokenRecord {
                 id: row.get(0)?,
                 client_id: row.get(1)?,
-                token_type: TokenType::from_str(&token_type_str).unwrap_or(TokenType::Access),
+                token_type: TokenType::parse(&token_type_str).unwrap_or(TokenType::Access),
                 token_hash: row.get(3)?,
                 scope: row.get(4)?,
                 expires_at: row.get(5)?,

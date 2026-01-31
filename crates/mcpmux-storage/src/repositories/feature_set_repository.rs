@@ -47,7 +47,7 @@ impl SqliteFeatureSetRepository {
             description: row.get(2)?,
             icon: row.get(3)?,
             space_id: row.get(4)?,
-            feature_set_type: FeatureSetType::from_str(&row.get::<_, String>(5)?)
+            feature_set_type: FeatureSetType::parse(&row.get::<_, String>(5)?)
                 .unwrap_or(FeatureSetType::Custom),
             server_id: row.get(6)?,
             is_builtin: row.get::<_, i32>(7)? == 1,
@@ -63,10 +63,10 @@ impl SqliteFeatureSetRepository {
         Ok(FeatureSetMember {
             id: row.get(0)?,
             feature_set_id: row.get(1)?,
-            member_type: MemberType::from_str(&row.get::<_, String>(2)?)
+            member_type: MemberType::parse(&row.get::<_, String>(2)?)
                 .unwrap_or(MemberType::Feature),
             member_id: row.get(3)?,
-            mode: MemberMode::from_str(&row.get::<_, String>(4)?).unwrap_or(MemberMode::Include),
+            mode: MemberMode::parse(&row.get::<_, String>(4)?).unwrap_or(MemberMode::Include),
         })
     }
 

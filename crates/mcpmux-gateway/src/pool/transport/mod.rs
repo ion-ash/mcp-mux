@@ -128,6 +128,7 @@ impl TransportFactory {
     ///
     /// For HTTP transports, the repositories are used to create a DatabaseCredentialStore
     /// that enables automatic token refresh via RMCP's AuthClient.
+    #[allow(clippy::too_many_arguments)]
     pub fn create(
         config: &ResolvedTransport,
         space_id: Uuid,

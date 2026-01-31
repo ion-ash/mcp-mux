@@ -69,7 +69,7 @@ impl LogLevel {
         }
     }
 
-    pub fn from_str(s: &str) -> Option<Self> {
+    pub fn parse(s: &str) -> Option<Self> {
         match s.to_lowercase().as_str() {
             "trace" => Some(Self::Trace),
             "debug" => Some(Self::Debug),

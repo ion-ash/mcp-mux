@@ -32,6 +32,7 @@ pub struct StdioTransport {
 }
 
 impl StdioTransport {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         command: String,
         args: Vec<String>,
