@@ -1,18 +1,46 @@
 # E2E Testing
 
-Two E2E test suites for different purposes:
+Two E2E test suites for different purposes.
 
-## 1. Tauri E2E (WebdriverIO) - Full Integration
+## 1. Web-only E2E (Playwright) - RECOMMENDED
 
-Tests the actual built Tauri application with backend.
+Tests UI components without Tauri backend (mocked IPC). Works everywhere.
 
 ```bash
-# Prerequisites
+pnpm test:e2e:web
+pnpm test:e2e:web:headed  # With browser visible
+```
+
+**Supported platforms**: All (Windows, Linux, macOS)  
+**Use for**: UI layout, component rendering, navigation, most testing
+
+**Test files**: `specs/*.spec.ts`
+
+## 2. Tauri E2E (WebdriverIO) - Full Integration
+
+Tests the actual built Tauri application with real backend. Complex setup.
+
+### Prerequisites
+
+```bash
+# 1. Install tauri-driver
 cargo install tauri-driver --locked
 
-# Windows: Install Edge Driver matching your Edge version
-# Linux: apt-get install webkit2gtk-driver
+# 2. Platform-specific WebDriver:
 
+# Windows: Download Edge WebDriver matching your Edge version
+# https://developer.microsoft.com/en-us/microsoft-edge/tools/webdriver/
+# Add msedgedriver.exe to PATH
+
+# Linux: 
+sudo apt-get install webkit2gtk-driver
+
+# macOS: NOT SUPPORTED (no WKWebView driver)
+```
+
+### Running
+
+```bash
 # Build the app first
 pnpm build
 
@@ -21,23 +49,9 @@ pnpm test:e2e
 ```
 
 **Supported platforms**: Windows, Linux  
-**NOT supported**: macOS (no WKWebView driver)
+**NOT supported**: macOS
 
 **Test files**: `specs/*.wdio.ts`
-
-## 2. Web-only E2E (Playwright)
-
-Tests UI components without Tauri backend (mocked IPC).
-
-```bash
-pnpm test:e2e:web
-pnpm test:e2e:web:headed  # With browser visible
-```
-
-**Supported platforms**: All  
-**Use for**: UI layout, component rendering, visual testing
-
-**Test files**: `specs/*.spec.ts`
 
 ## When to Use Which
 

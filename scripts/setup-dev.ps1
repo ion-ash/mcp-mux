@@ -49,6 +49,49 @@ if (-not $SkipTauriDriver) {
     Write-Host "`nInstalling tauri-driver..." -ForegroundColor Yellow
     cargo install tauri-driver --locked
     Write-Host "  Done" -ForegroundColor Green
+    
+    # Windows: Install Edge WebDriver (required for tauri-driver)
+    if ($IsWindows -or $env:OS -eq "Windows_NT") {
+        Write-Host "`nInstalling Edge WebDriver..." -ForegroundColor Yellow
+        
+        # Get Edge version
+        $edgePath = "C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"
+        if (-not (Test-Path $edgePath)) {
+            $edgePath = "C:\Program Files\Microsoft\Edge\Application\msedge.exe"
+        }
+        
+        if (Test-Path $edgePath) {
+            $edgeVersion = (Get-Item $edgePath).VersionInfo.ProductVersion
+            $majorVersion = $edgeVersion.Split('.')[0]
+            Write-Host "  Edge version: $edgeVersion" -ForegroundColor Cyan
+            
+            # Download matching Edge WebDriver
+            $driverUrl = "https://msedgedriver.azureedge.net/$edgeVersion/edgedriver_win64.zip"
+            $driverZip = "$env:TEMP\edgedriver.zip"
+            $driverDir = "$env:LOCALAPPDATA\EdgeDriver"
+            
+            try {
+                Write-Host "  Downloading Edge WebDriver..." -ForegroundColor Cyan
+                Invoke-WebRequest -Uri $driverUrl -OutFile $driverZip -UseBasicParsing
+                
+                # Extract
+                if (Test-Path $driverDir) { Remove-Item -Recurse -Force $driverDir }
+                Expand-Archive -Path $driverZip -DestinationPath $driverDir -Force
+                Remove-Item $driverZip
+                
+                # Add to PATH for this session
+                $env:PATH = "$driverDir;$env:PATH"
+                
+                Write-Host "  Edge WebDriver installed to: $driverDir" -ForegroundColor Green
+                Write-Host "  Add to PATH: $driverDir" -ForegroundColor Yellow
+            } catch {
+                Write-Host "  Warning: Could not download Edge WebDriver" -ForegroundColor Yellow
+                Write-Host "  Download manually from: https://developer.microsoft.com/en-us/microsoft-edge/tools/webdriver/" -ForegroundColor Yellow
+            }
+        } else {
+            Write-Host "  Warning: Edge not found. Tauri E2E tests won't work." -ForegroundColor Yellow
+        }
+    }
 }
 
 # Install cargo-nextest for faster Rust tests
@@ -62,7 +105,10 @@ Write-Host "`n=== Setup Complete ===" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "You can now run:"
 Write-Host "  pnpm dev           - Start development server"
-Write-Host "  pnpm test          - Run all tests"
-Write-Host "  pnpm test:e2e:web  - Run web E2E tests (Playwright)"
-Write-Host "  pnpm test:e2e      - Run full Tauri E2E tests (requires built app)"
+Write-Host "  pnpm test          - Run all tests (Rust + TypeScript)"
+Write-Host "  pnpm test:e2e:web  - Run web E2E tests (Playwright) - RECOMMENDED"
+Write-Host ""
+Write-Host "Full Tauri E2E (advanced, requires build):"
+Write-Host "  pnpm build         - Build the app first"
+Write-Host "  pnpm test:e2e      - Run Tauri E2E tests"
 Write-Host ""
