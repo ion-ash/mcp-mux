@@ -118,7 +118,7 @@ jobs:
   # Nightly: Build on every push (no release)
   # ─────────────────────────────────────────────────────────────
   nightly:
-    if: github.event_name == 'push' && !contains(github.event.head_commit.message, 'chore: version packages')
+    if: "github.event_name == 'push' && !contains(github.event.head_commit.message, 'chore: version packages')"
     strategy:
       fail-fast: false
       matrix:
@@ -129,7 +129,6 @@ jobs:
             target: x86_64-pc-windows-msvc
           - os: macos-latest
             target: aarch64-apple-darwin
-
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
