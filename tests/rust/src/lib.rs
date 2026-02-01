@@ -1,6 +1,125 @@
 //! Shared test utilities and fixtures for McpMux integration tests.
 
-pub use mcpmux_core::domain::{InstalledServer, Space, FeatureSet, FeatureSetType};
+pub use mcpmux_core::domain::{InstalledServer, Space, FeatureSet, FeatureSetType, Client, Credential};
+pub use mcpmux_core::{DomainEvent, ConnectionStatus, DiscoveredCapabilities, ServerFeature, FeatureType};
+
+/// Mock repository implementations
+pub mod mocks;
+pub use mocks::MockRepositories;
+
+/// Service test helpers
+pub mod services;
+pub use services::ServerManagerTestHarness;
+
+/// Event testing utilities
+pub mod events {
+    use mcpmux_core::DomainEvent;
+    use tokio::sync::broadcast;
+    use std::time::Duration;
+
+    /// Create a test event channel with sufficient capacity
+    pub fn test_event_channel() -> (broadcast::Sender<DomainEvent>, broadcast::Receiver<DomainEvent>) {
+        broadcast::channel(100)
+    }
+
+    /// Collect events from a receiver with a timeout
+    pub async fn collect_events(
+        mut rx: broadcast::Receiver<DomainEvent>,
+        timeout: Duration,
+    ) -> Vec<DomainEvent> {
+        let mut events = Vec::new();
+        let deadline = tokio::time::Instant::now() + timeout;
+        
+        loop {
+            let remaining = deadline.saturating_duration_since(tokio::time::Instant::now());
+            if remaining.is_zero() {
+                break;
+            }
+            
+            match tokio::time::timeout(remaining, rx.recv()).await {
+                Ok(Ok(event)) => events.push(event),
+                Ok(Err(_)) => break, // Channel closed or lagged
+                Err(_) => break, // Timeout
+            }
+        }
+        
+        events
+    }
+
+    /// Wait for a specific event type
+    pub async fn wait_for_event<F>(
+        mut rx: broadcast::Receiver<DomainEvent>,
+        timeout: Duration,
+        predicate: F,
+    ) -> Option<DomainEvent>
+    where
+        F: Fn(&DomainEvent) -> bool,
+    {
+        let deadline = tokio::time::Instant::now() + timeout;
+        
+        loop {
+            let remaining = deadline.saturating_duration_since(tokio::time::Instant::now());
+            if remaining.is_zero() {
+                return None;
+            }
+            
+            match tokio::time::timeout(remaining, rx.recv()).await {
+                Ok(Ok(event)) if predicate(&event) => return Some(event),
+                Ok(Ok(_)) => continue, // Not the event we want
+                Ok(Err(_)) => return None, // Channel closed
+                Err(_) => return None, // Timeout
+            }
+        }
+    }
+
+    /// Assert that a ServerStatusChanged event was emitted with expected status
+    pub fn assert_status_changed(
+        events: &[DomainEvent],
+        expected_server_id: &str,
+        expected_status: mcpmux_core::ConnectionStatus,
+    ) -> bool {
+        events.iter().any(|e| {
+            if let DomainEvent::ServerStatusChanged { server_id, status, .. } = e {
+                server_id == expected_server_id && *status == expected_status
+            } else {
+                false
+            }
+        })
+    }
+}
+
+/// Server feature fixtures for testing
+pub mod features {
+    use mcpmux_core::ServerFeature;
+
+    /// Create a test tool feature
+    pub fn test_tool(space_id: &str, server_id: &str, name: &str) -> ServerFeature {
+        ServerFeature::tool(space_id, server_id, name)
+            .with_description(format!("Test tool: {}", name))
+    }
+
+    /// Create a test prompt feature
+    pub fn test_prompt(space_id: &str, server_id: &str, name: &str) -> ServerFeature {
+        ServerFeature::prompt(space_id, server_id, name)
+            .with_description(format!("Test prompt: {}", name))
+    }
+
+    /// Create a test resource feature
+    pub fn test_resource(space_id: &str, server_id: &str, uri: &str) -> ServerFeature {
+        ServerFeature::resource(space_id, server_id, uri)
+            .with_description(format!("Test resource: {}", uri))
+    }
+
+    /// Create a set of test features for a server
+    pub fn test_feature_set(space_id: &str, server_id: &str) -> Vec<ServerFeature> {
+        vec![
+            test_tool(space_id, server_id, "read_file"),
+            test_tool(space_id, server_id, "write_file"),
+            test_prompt(space_id, server_id, "summarize"),
+            test_resource(space_id, server_id, "file:///test"),
+        ]
+    }
+}
 
 /// Test fixture utilities
 pub mod fixtures {

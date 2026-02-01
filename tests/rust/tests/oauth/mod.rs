@@ -1,5 +1,7 @@
 //! OAuth integration tests
 //!
-//! Tests for OAuth flows, token management, and PKCE.
+//! Tests for OAuth flows, token management, DCR, and HTTP interactions.
 
-// No tests yet - OAuth tests require mock server setup
+mod dcr;
+mod flow;
+mod token;

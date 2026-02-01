@@ -1,5 +1,5 @@
 //! Gateway integration tests
 //!
-//! Tests for HTTP API, connection pool, and routing.
+//! Tests for ServerManager state machine and connection handling.
 
-// No tests yet - gateway tests require more infrastructure
+mod server_manager;

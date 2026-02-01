@@ -32,6 +32,23 @@ chrono = { version = "0.4", features = ["serde"] }
 # Hex encoding for crypto tests
 hex = "0.4"
 
+# Dashmap for concurrent collections
+dashmap = "6.1"
+
+# Tracing for test output
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# HTTP mocking for OAuth tests
+wiremock = "0.6"
+reqwest = { version = "0.12", features = ["json"] }
+
+# URL parsing for OAuth tests
+url = "2.5"
+
+# Sync primitives for tests
+parking_lot = "0.12"
+
 [lib]
 path = "src/lib.rs"
 
@@ -43,11 +60,14 @@ path = "tests/database/mod.rs"
 name = "security"
 path = "tests/security/mod.rs"
 
-# Gateway and OAuth tests will be added later when infrastructure is ready
-# [[test]]
-# name = "gateway"
-# path = "tests/gateway/mod.rs"
-#
-# [[test]]
-# name = "oauth"
-# path = "tests/oauth/mod.rs"
+[[test]]
+name = "gateway"
+path = "tests/gateway/mod.rs"
+
+[[test]]
+name = "oauth"
+path = "tests/oauth/mod.rs"
+
+[[test]]
+name = "integration"
+path = "tests/integration/mod.rs"
