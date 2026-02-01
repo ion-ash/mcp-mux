@@ -93,18 +93,21 @@ function AppContent() {
           label="Dashboard"
           active={activeNav === 'home'}
           onClick={() => setActiveNav('home')}
+          data-testid="nav-dashboard"
         />
         <SidebarItem
           icon={<Zap className="h-4 w-4" />}
           label="My Servers"
           active={activeNav === 'servers'}
           onClick={() => setActiveNav('servers')}
+          data-testid="nav-my-servers"
         />
         <SidebarItem
           icon={<Server className="h-4 w-4" />}
           label="Discover"
           active={activeNav === 'registry'}
           onClick={() => setActiveNav('registry')}
+          data-testid="nav-discover"
         />
       </SidebarSection>
 
@@ -114,12 +117,14 @@ function AppContent() {
           label="Spaces"
           active={activeNav === 'spaces'}
           onClick={() => setActiveNav('spaces')}
+          data-testid="nav-spaces"
         />
         <SidebarItem
           icon={<Wrench className="h-4 w-4" />}
           label="FeatureSets"
           active={activeNav === 'featuresets'}
           onClick={() => setActiveNav('featuresets')}
+          data-testid="nav-featuresets"
         />
       </SidebarSection>
 
@@ -129,6 +134,7 @@ function AppContent() {
           label="Clients"
           active={activeNav === 'clients'}
           onClick={() => setActiveNav('clients')}
+          data-testid="nav-clients"
         />
       </SidebarSection>
 
@@ -138,6 +144,7 @@ function AppContent() {
           label="Settings"
           active={activeNav === 'settings'}
           onClick={() => setActiveNav('settings')}
+          data-testid="nav-settings"
         />
       </SidebarSection>
     </Sidebar>

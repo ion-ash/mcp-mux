@@ -68,13 +68,14 @@ export function ServerCard({
                  hover:border-[rgb(var(--primary))]/50 hover:shadow-lg
                  transition-all duration-200 cursor-pointer shadow-sm"
       onClick={() => onViewDetails(server)}
+      data-testid={`server-card-${server.id}`}
     >
       {/* Header */}
       <div className="flex items-start gap-3 mb-3">
         <div className="text-3xl flex-shrink-0">{server.icon || '📦'}</div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5">
-            <h3 className="font-semibold truncate" title={server.name}>
+            <h3 className="font-semibold truncate" title={server.name} data-testid={`server-name-${server.id}`}>
               {server.name}
             </h3>
             {server.publisher?.verified && (
@@ -132,6 +133,7 @@ export function ServerCard({
             disabled={isLoading}
             className="px-4 py-1.5 text-sm rounded-lg border border-[rgb(var(--error))]/30 text-[rgb(var(--error))]
                        hover:bg-[rgb(var(--error))]/10 transition-colors disabled:opacity-50"
+            data-testid={`uninstall-btn-${server.id}`}
           >
             Uninstall
           </button>
@@ -144,6 +146,7 @@ export function ServerCard({
             disabled={isLoading}
             className="px-4 py-1.5 text-sm rounded-lg bg-[rgb(var(--primary))] text-[rgb(var(--primary-foreground))]
                        hover:bg-[rgb(var(--primary-hover))] transition-colors disabled:opacity-50"
+            data-testid={`install-btn-${server.id}`}
           >
             Install
           </button>

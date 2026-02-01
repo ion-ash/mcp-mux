@@ -1,28 +1,197 @@
 /**
  * WebdriverIO configuration for Tauri E2E testing
- * 
+ *
  * Prerequisites:
  * 1. cargo install tauri-driver --locked
  * 2. Build the app: pnpm build
  * 3. Linux: apt-get install webkit2gtk-driver
  * 4. Windows: Edge Driver matching your Edge version
- * 
+ *
  * Note: macOS is NOT supported (no WKWebView driver)
+ *
+ * Mock Servers:
+ * - Mock Bundle API (port 3456): Returns test server configurations
+ * - Stub MCP HTTP (port 3457): Streamable HTTP server without auth
+ * - Stub MCP OAuth (port 3458): Streamable HTTP server with OAuth
  */
 
 import type { Options } from '@wdio/types';
-import { spawn, type ChildProcess } from 'child_process';
+import { spawn, spawnSync, type ChildProcess } from 'child_process';
 import path from 'path';
+import os from 'os';
+import fs from 'fs';
+import video from 'wdio-video-reporter';
 
-// Store tauri-driver process
+// Store process references
 let tauriDriver: ChildProcess | null = null;
+let mockBundleApi: ChildProcess | null = null;
+let stubMcpHttp: ChildProcess | null = null;
+let stubMcpOauth: ChildProcess | null = null;
+let shouldExit = false;
+
+// Mock server ports
+// Use 8787 for bundle API because that's the app's default MCPMUX_REGISTRY_URL
+const MOCK_BUNDLE_API_PORT = 8787;
+const STUB_MCP_HTTP_PORT = 3457;
+const STUB_MCP_OAUTH_PORT = 3458;
+
+// App data directory (Windows: %LOCALAPPDATA%/com.mcpmux.desktop/)
+const APP_DATA_DIR = path.join(
+  process.env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local'),
+  'com.mcpmux.desktop'
+);
+const BUNDLE_CACHE_PATH = path.join(APP_DATA_DIR, 'cache', 'registry-bundle.json');
 
 // Path to built app
-const APP_PATH = process.platform === 'win32'
-  ? path.resolve('./target/release/mcpmux.exe')
-  : path.resolve('./target/release/mcpmux');
+const APP_PATH =
+  process.platform === 'win32'
+    ? path.resolve('./target/release/mcpmux.exe')
+    : path.resolve('./target/release/mcpmux');
+
+// Check if app is built
+function checkAppBuilt(): void {
+  if (!fs.existsSync(APP_PATH)) {
+    console.error(`\n[ERROR] App not built. Expected at: ${APP_PATH}`);
+    console.error('Run "pnpm build" first.\n');
+    process.exit(1);
+  }
+}
+
+// Check if tauri-driver is available
+function checkTauriDriver(): boolean {
+  try {
+    // tauri-driver doesn't have --version, so check --help instead
+    spawnSync('tauri-driver', ['--help'], { stdio: 'pipe' });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+
+// Clear the app's registry bundle cache so it fetches fresh from our mock
+function clearBundleCache(): void {
+  try {
+    if (fs.existsSync(BUNDLE_CACHE_PATH)) {
+      fs.unlinkSync(BUNDLE_CACHE_PATH);
+      console.log(`[e2e] Cleared bundle cache: ${BUNDLE_CACHE_PATH}`);
+    } else {
+      console.log(`[e2e] No bundle cache to clear`);
+    }
+  } catch (error) {
+    console.warn(`[e2e] Failed to clear bundle cache: ${error}`);
+  }
+}
+
+// Wait for a server to be ready by polling a health endpoint
+async function waitForServer(port: number, name: string, timeout = 30000): Promise<void> {
+  const start = Date.now();
+  const healthUrl = `http://localhost:${port}/health`;
+  
+  while (Date.now() - start < timeout) {
+    try {
+      const response = await fetch(healthUrl);
+      if (response.ok) {
+        console.log(`[e2e] ${name} is ready on port ${port}`);
+        return;
+      }
+    } catch {
+      // Server not ready yet
+    }
+    await new Promise((resolve) => setTimeout(resolve, 200));
+  }
+  
+  throw new Error(`[e2e] ${name} failed to start within ${timeout}ms`);
+}
+
+// Start mock servers
+async function startMockServers(): Promise<void> {
+  const mocksDir = path.resolve('./tests/e2e/mocks');
+  
+  // Start Mock Bundle API
+  console.log('[e2e] Starting Mock Bundle API...');
+  mockBundleApi = spawn('pnpm', ['exec', 'tsx', path.join(mocksDir, 'mock-bundle-api', 'server.ts')], {
+    env: { ...process.env, PORT: String(MOCK_BUNDLE_API_PORT) },
+    stdio: ['ignore', 'pipe', 'pipe'],
+    shell: true,
+  });
+  mockBundleApi.stdout?.on('data', (data) => console.log(`[mock-bundle-api] ${data.toString().trim()}`));
+  mockBundleApi.stderr?.on('data', (data) => console.error(`[mock-bundle-api] ${data.toString().trim()}`));
+  
+  // Start Stub MCP HTTP Server
+  console.log('[e2e] Starting Stub MCP HTTP Server...');
+  stubMcpHttp = spawn('pnpm', ['exec', 'tsx', path.join(mocksDir, 'stub-mcp-server', 'http-server.ts')], {
+    env: { ...process.env, PORT: String(STUB_MCP_HTTP_PORT) },
+    stdio: ['ignore', 'pipe', 'pipe'],
+    shell: true,
+  });
+  stubMcpHttp.stdout?.on('data', (data) => console.log(`[stub-mcp-http] ${data.toString().trim()}`));
+  stubMcpHttp.stderr?.on('data', (data) => console.error(`[stub-mcp-http] ${data.toString().trim()}`));
+  
+  // Start Stub MCP OAuth Server
+  console.log('[e2e] Starting Stub MCP OAuth Server...');
+  stubMcpOauth = spawn('pnpm', ['exec', 'tsx', path.join(mocksDir, 'stub-mcp-server', 'http-oauth-server.ts')], {
+    env: { ...process.env, PORT: String(STUB_MCP_OAUTH_PORT) },
+    stdio: ['ignore', 'pipe', 'pipe'],
+    shell: true,
+  });
+  stubMcpOauth.stdout?.on('data', (data) => console.log(`[stub-mcp-oauth] ${data.toString().trim()}`));
+  stubMcpOauth.stderr?.on('data', (data) => console.error(`[stub-mcp-oauth] ${data.toString().trim()}`));
+  
+  // Wait for all servers to be ready
+  await Promise.all([
+    waitForServer(MOCK_BUNDLE_API_PORT, 'Mock Bundle API'),
+    waitForServer(STUB_MCP_HTTP_PORT, 'Stub MCP HTTP'),
+    waitForServer(STUB_MCP_OAUTH_PORT, 'Stub MCP OAuth'),
+  ]);
+}
+
+// Stop all mock servers
+function stopMockServers(): void {
+  if (mockBundleApi) {
+    mockBundleApi.kill();
+    mockBundleApi = null;
+  }
+  if (stubMcpHttp) {
+    stubMcpHttp.kill();
+    stubMcpHttp = null;
+  }
+  if (stubMcpOauth) {
+    stubMcpOauth.kill();
+    stubMcpOauth = null;
+  }
+}
+
+function closeTauriDriver() {
+  shouldExit = true;
+  tauriDriver?.kill();
+  stopMockServers();
+}
+
+function onShutdown(fn: () => void) {
+  const cleanup = () => {
+    try {
+      fn();
+    } finally {
+      process.exit();
+    }
+  };
+
+  process.on('exit', cleanup);
+  process.on('SIGINT', cleanup);
+  process.on('SIGTERM', cleanup);
+}
+
+// Ensure tauri-driver is closed when test process exits
+onShutdown(() => {
+  closeTauriDriver();
+});
 
 export const config: Options.Testrunner = {
+  // Connect to tauri-driver
+  host: '127.0.0.1',
+  port: 4444,
+
   autoCompileOpts: {
     autoCompile: true,
     tsNodeOpts: {
@@ -38,6 +207,7 @@ export const config: Options.Testrunner = {
 
   capabilities: [
     {
+      maxInstances: 1,
       'tauri:options': {
         application: APP_PATH,
       },
@@ -51,49 +221,88 @@ export const config: Options.Testrunner = {
   connectionRetryCount: 3,
 
   framework: 'mocha',
-  reporters: ['spec'],
+  reporters: [
+    'spec',
+    [video, {
+      saveAllVideos: process.env.SAVE_ALL_VIDEOS === 'true', // Save all videos when env var is set
+      videoSlowdownMultiplier: 1, // Normal speed
+      outputDir: './tests/e2e/videos/',
+    }],
+  ],
 
   mochaOpts: {
     ui: 'bdd',
     timeout: 60000,
   },
 
-  // Start tauri-driver before tests
+  // Take screenshot on test failure
+  afterTest: async function(test, context, { error }) {
+    if (error) {
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const filename = `./tests/e2e/screenshots/FAIL-${test.title.replace(/\s+/g, '_')}-${timestamp}.png`;
+      await browser.saveScreenshot(filename);
+      console.log(`[e2e] Screenshot saved: ${filename}`);
+    }
+  },
+
+  // Verify prerequisites before running
   onPrepare: async function () {
-    return new Promise<void>((resolve, reject) => {
-      tauriDriver = spawn('tauri-driver', [], {
-        stdio: ['ignore', 'pipe', 'pipe'],
-      });
+    // Verify tauri-driver is installed
+    const hasTauriDriver = checkTauriDriver();
+    if (!hasTauriDriver) {
+      console.error('\n[ERROR] tauri-driver is not installed.');
+      console.error('Install it with: cargo install tauri-driver --locked\n');
+      process.exit(1);
+    }
 
-      tauriDriver.stdout?.on('data', (data) => {
-        const output = data.toString();
-        if (output.includes('Listening on')) {
-          console.log('[tauri-driver] Started');
-          resolve();
-        }
-      });
+    // Verify app is built
+    checkAppBuilt();
 
-      tauriDriver.stderr?.on('data', (data) => {
-        console.error('[tauri-driver]', data.toString());
-      });
+    // Clear bundle cache so app fetches from our mock
+    clearBundleCache();
 
-      tauriDriver.on('error', (err) => {
-        console.error('[tauri-driver] Failed to start:', err);
-        reject(err);
-      });
+    // Start mock servers
+    await startMockServers();
+  },
 
-      // Timeout if tauri-driver doesn't start
-      setTimeout(() => {
-        reject(new Error('tauri-driver startup timeout'));
-      }, 30000);
+  // Start tauri-driver before the session starts
+  beforeSession: function () {
+    const tauriDriverPath = path.resolve(
+      os.homedir(),
+      '.cargo',
+      'bin',
+      process.platform === 'win32' ? 'tauri-driver.exe' : 'tauri-driver'
+    );
+
+    // Pass registry URL environment variable to tauri-driver (which passes to the app)
+    tauriDriver = spawn(tauriDriverPath, [], {
+      stdio: [null, process.stdout, process.stderr],
+      env: {
+        ...process.env,
+        MCPMUX_REGISTRY_URL: `http://localhost:${MOCK_BUNDLE_API_PORT}`,
+      },
+    });
+
+    tauriDriver.on('error', (error) => {
+      console.error('[tauri-driver] Error:', error);
+      process.exit(1);
+    });
+
+    tauriDriver.on('exit', (code) => {
+      if (!shouldExit) {
+        console.error('[tauri-driver] Exited with code:', code);
+        process.exit(1);
+      }
     });
   },
 
-  // Stop tauri-driver after tests
-  onComplete: async function () {
-    if (tauriDriver) {
-      tauriDriver.kill();
-      tauriDriver = null;
-    }
+  // Stop tauri-driver after the session
+  afterSession: function () {
+    closeTauriDriver();
+  },
+
+  // Clean up mock servers after all tests complete
+  onComplete: function () {
+    stopMockServers();
   },
 };

@@ -761,11 +761,11 @@ export function ServersPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" data-testid="servers-page">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">My Servers</h1>
+          <h1 className="text-2xl font-bold" data-testid="servers-title">My Servers</h1>
           <p className="text-sm text-[rgb(var(--muted))]">
             Manage your installed MCP servers
           </p>
@@ -843,6 +843,7 @@ export function ServersPage() {
                 className={`bg-[rgb(var(--card))] border border-[rgb(var(--border-subtle))] rounded-xl shadow-sm transition-all ${
                   !server.enabled && 'opacity-60'
                 }`}
+                data-testid={`installed-server-${server.id}`}
               >
                 {/* Server Header */}
                 <div className="p-4">

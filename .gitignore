@@ -58,6 +58,8 @@ playwright-report/
 blob-report/
 html-report/
 tests/e2e/reports/
+tests/e2e/screenshots/
+tests/e2e/videos/
 
 # Tauri
 apps/desktop/src-tauri/target/

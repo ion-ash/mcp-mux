@@ -1,0 +1,20 @@
+{
+  "name": "stub-mcp-server",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start:stdio": "tsx stdio-server.ts",
+    "start:http": "tsx http-server.ts",
+    "start:oauth": "tsx http-oauth-server.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.10.0",
+    "zod": "^3.23.8",
+    "express": "^5.0.1"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "tsx": "^4.19.0"
+  }
+}

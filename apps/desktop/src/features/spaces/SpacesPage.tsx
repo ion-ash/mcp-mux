@@ -112,7 +112,7 @@ export function SpacesPage() {
                 Manage isolated environments with their own credentials and server configurations
               </p>
             </div>
-            <Button variant="primary" size="md" onClick={() => setShowCreateModal(true)}>
+            <Button variant="primary" size="md" onClick={() => setShowCreateModal(true)} data-testid="create-space-btn">
               <Plus className="h-4 w-4 mr-2" />
               Create Space
             </Button>
@@ -182,6 +182,7 @@ export function SpacesPage() {
                     className={`transition-all hover:shadow-lg hover:scale-[1.01] ${
                       isActive ? 'ring-2 ring-primary-500 shadow-lg' : ''
                     }`}
+                    data-testid={`space-card-${space.id}`}
                   >
                     <CardContent className="p-5">
                       {/* Header */}
@@ -209,6 +210,7 @@ export function SpacesPage() {
                                disabled={isProcessing || isActive}
                                className="p-1.5 text-[rgb(var(--muted))] hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                title="Delete Space"
+                               data-testid={`delete-space-${space.id}`}
                              >
                                <Trash2 className="h-4 w-4" />
                              </button>
@@ -224,6 +226,7 @@ export function SpacesPage() {
                              variant="secondary"
                              onClick={() => handleSetActive(space.id)}
                              disabled={isProcessing}
+                             data-testid={`set-active-space-${space.id}`}
                            >
                              {isProcessing ? (
                                <Loader2 className="h-3 w-3 animate-spin mr-2" />
@@ -247,8 +250,8 @@ export function SpacesPage() {
 
       {/* Create Modal */}
       {showCreateModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <Card className="w-full max-w-md mx-4 animate-in fade-in zoom-in-95 duration-200 shadow-2xl">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" data-testid="create-space-modal-overlay">
+          <Card className="w-full max-w-md mx-4 animate-in fade-in zoom-in-95 duration-200 shadow-2xl" data-testid="create-space-modal">
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
                 <span className="flex items-center gap-2">
@@ -292,6 +295,7 @@ export function SpacesPage() {
                   placeholder="e.g., Personal, Work, Project X"
                   className="w-full px-3 py-2.5 rounded-lg border border-[rgb(var(--border))] bg-[rgb(var(--surface))] focus:outline-none focus:ring-2 focus:ring-primary-500"
                   autoFocus
+                  data-testid="create-space-name-input"
                 />
               </div>
 
@@ -300,6 +304,7 @@ export function SpacesPage() {
                   variant="ghost" 
                   onClick={() => setShowCreateModal(false)}
                   className="flex-1"
+                  data-testid="create-space-cancel-btn"
                 >
                   Cancel
                 </Button>
@@ -308,6 +313,7 @@ export function SpacesPage() {
                   onClick={handleCreate}
                   disabled={isCreating || !newSpaceName.trim()}
                   className="flex-1"
+                  data-testid="create-space-submit-btn"
                 >
                   {isCreating ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : 'Create Space'}
                 </Button>

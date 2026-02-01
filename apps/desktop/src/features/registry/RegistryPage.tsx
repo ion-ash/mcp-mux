@@ -91,11 +91,11 @@ export function RegistryPage() {
   const hasActiveFilters = Object.values(activeFilters).some(v => v && v !== 'all');
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full flex flex-col" data-testid="registry-page">
       {/* Header */}
       <div className="p-6 border-b border-[rgb(var(--border-subtle))]">
         <div className="flex items-center gap-3 mb-1">
-          <h1 className="text-2xl font-bold">Discover Servers</h1>
+          <h1 className="text-2xl font-bold" data-testid="registry-title">Discover Servers</h1>
           {isOffline && (
             <span className="px-2 py-0.5 text-xs font-medium bg-amber-500/20 text-amber-600 dark:text-amber-400 rounded-full">
               Offline
@@ -133,6 +133,7 @@ export function RegistryPage() {
             value={localSearch}
             onChange={(e) => setLocalSearch(e.target.value)}
             className="input w-full pl-10"
+            data-testid="search-input"
           />
         </div>
 
@@ -225,7 +226,7 @@ export function RegistryPage() {
 
       {/* Footer: Stats & Pagination */}
       <div className="p-4 border-t border-[rgb(var(--border-subtle))] flex items-center justify-between bg-[rgb(var(--surface))]">
-        <div className="text-sm text-[rgb(var(--muted))]">
+        <div className="text-sm text-[rgb(var(--muted))]" data-testid="server-count">
           {displayServers.length} server{displayServers.length !== 1 ? 's' : ''} found
           {servers.filter((s) => s.is_installed).length > 0 && (
             <span className="ml-2 border-l border-[rgb(var(--border-subtle))] pl-2">
