@@ -77,7 +77,13 @@ jobs:
       - name: Run desktop E2E tests (Linux)
         if: matrix.os == 'ubuntu-latest'
         run: |
-          dbus-run-session -- bash -c 'gnome-keyring-daemon --unlock < /dev/null; sleep 2; xvfb-run --auto-servernum pnpm test:e2e'
+          # Start dbus session and unlock gnome-keyring with a dummy password for CI
+          dbus-run-session -- bash -c '
+            echo "test" | gnome-keyring-daemon --unlock --components=secrets
+            export $(gnome-keyring-daemon --start --components=secrets)
+            sleep 1
+            xvfb-run --auto-servernum pnpm test:e2e
+          '
 
       - name: Run desktop E2E tests (Windows)
         if: matrix.os == 'windows-latest'

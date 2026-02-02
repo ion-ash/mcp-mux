@@ -21,10 +21,20 @@ jobs:
     steps:
       - name: Check comment trigger
         id: check
-        uses: ./.github/actions/check-comment-trigger
+        uses: actions/github-script@v7
         with:
-          trigger: '/e2e-desktop'
-          allow_workflow_dispatch: 'true'
+          script: |
+            const trigger = '/e2e-desktop';
+            if (context.eventName === 'workflow_dispatch') {
+              core.setOutput('should_run', 'true');
+              return;
+            }
+            if (context.eventName === 'issue_comment' && context.payload.issue?.pull_request) {
+              const body = context.payload.comment?.body || '';
+              core.setOutput('should_run', body.includes(trigger) ? 'true' : 'false');
+              return;
+            }
+            core.setOutput('should_run', 'false');
 
   get-pr-ref:
     needs: check-trigger

@@ -227,6 +227,7 @@ jobs:
     outputs:
       run_e2e: ${{ steps.check.outputs.should_run }}
     steps:
+      - uses: actions/checkout@v4
       - name: Check if e2e-desktop should run
         id: check
         uses: ./.github/actions/check-comment-trigger
@@ -240,7 +241,7 @@ jobs:
   # Runs when: main branch, [e2e] in commit, or /e2e-desktop comment on PR
   # ─────────────────────────────────────────────────────────────
   e2e-desktop:
-    needs: [build, e2e-trigger-check]
+    needs: [e2e-trigger-check]
     if: needs.e2e-trigger-check.outputs.run_e2e == 'true'
     uses: ./.github/workflows/e2e-desktop.yml
     with:
