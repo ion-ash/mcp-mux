@@ -136,20 +136,26 @@ describe('FeatureSet - Server-All Auto Creation', () => {
   });
 
   it('TC-FS-004: Disable server and verify FeatureSet is hidden', async () => {
+    // Try to dismiss any open modal first
+    await browser.keys('Escape');
+    await browser.pause(500);
+    
     const myServersButton = await byTestId('nav-my-servers');
-    await safeClick(myServersButton);
+    await myServersButton.waitForClickable({ timeout: TIMEOUT.medium });
+    await myServersButton.click();
     await browser.pause(2000);
     
     const disableButton = await byTestId('disable-server-echo-server');
     const isDisableDisplayed = await disableButton.isDisplayed().catch(() => false);
     
     if (isDisableDisplayed) {
-      await safeClick(disableButton);
+      await disableButton.click();
       await browser.pause(2000);
     }
     
     const featureSetsButton = await byTestId('nav-featuresets');
-    await safeClick(featureSetsButton);
+    await featureSetsButton.waitForClickable({ timeout: TIMEOUT.medium });
+    await featureSetsButton.click();
     await browser.pause(2000);
     
     await browser.saveScreenshot('./tests/e2e/screenshots/fs-05-after-disable.png');
@@ -162,8 +168,13 @@ describe('FeatureSet - Server-All Auto Creation', () => {
   });
 
   it('Cleanup: Uninstall Echo Server', async () => {
+    // Try to dismiss any open modal first
+    await browser.keys('Escape');
+    await browser.pause(500);
+    
     const discoverButton = await byTestId('nav-discover');
-    await safeClick(discoverButton);
+    await discoverButton.waitForClickable({ timeout: TIMEOUT.medium });
+    await discoverButton.click();
     await browser.pause(2000);
     
     const searchInput = await byTestId('search-input');
@@ -177,9 +188,8 @@ describe('FeatureSet - Server-All Auto Creation', () => {
     
     if (isDisplayed) {
       await uninstallButton.waitForClickable({ timeout: TIMEOUT.medium });
-      await safeClick(uninstallButton);
+      await uninstallButton.click();
       await browser.pause(2000);
-      await waitForModalClose();
     }
     
     await browser.saveScreenshot('./tests/e2e/screenshots/fs-06-cleanup.png');
