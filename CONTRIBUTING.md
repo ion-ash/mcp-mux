@@ -4,7 +4,7 @@ Thank you for your interest in contributing!
 
 ## License
 
-This project is licensed under the [Elastic License 2.0 (ELv2)](LICENSE). By contributing, you agree that your contributions will be licensed under the same license.
+This project is licensed under the [GNU General Public License v3.0 (GPL-3.0)](LICENSE). By contributing, you agree that your contributions will be licensed under the same license.
 
 ## Developer Certificate of Origin (DCO)
 

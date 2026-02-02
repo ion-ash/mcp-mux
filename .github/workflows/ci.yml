@@ -188,44 +188,25 @@ jobs:
           retention-days: 7
 
   # ─────────────────────────────────────────────────────────────
-  # Build Verification (ensures app compiles on all platforms)
-  # Runs after checks pass; uses cached Rust build artifacts
+  # Build Verification (macOS only - Linux/Windows covered by e2e-desktop)
   # ─────────────────────────────────────────────────────────────
   build:
     needs: [rust-check, ts-check]
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: ubuntu-latest
-            target: x86_64-unknown-linux-gnu
-          - os: windows-latest
-            target: x86_64-pc-windows-msvc
-          - os: macos-latest
-            target: aarch64-apple-darwin
-
-    runs-on: ${{ matrix.os }}
+    runs-on: macos-latest
+    env:
+      MACOSX_DEPLOYMENT_TARGET: '10.13'
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Linux deps
-        if: matrix.os == 'ubuntu-latest'
-        uses: ./.github/actions/install-linux-deps
-
       - uses: dtolnay/rust-toolchain@stable
         with:
-          targets: ${{ matrix.target }}
-        env:
-          PKG_CONFIG_PATH: /usr/lib/x86_64-linux-gnu/pkgconfig:/usr/lib/pkgconfig:/usr/share/pkgconfig
+          targets: aarch64-apple-darwin
 
-      # Use shared cache key so builds benefit from rust-test artifacts
       - uses: Swatinem/rust-cache@v2
         with:
-          key: ${{ matrix.target }}
-          shared-key: rust-${{ matrix.target }}
+          key: aarch64-apple-darwin
+          shared-key: rust-aarch64-apple-darwin
           cache-on-failure: true
-        env:
-          PKG_CONFIG_PATH: /usr/lib/x86_64-linux-gnu/pkgconfig:/usr/lib/pkgconfig:/usr/share/pkgconfig
 
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
@@ -246,7 +227,7 @@ jobs:
           restore-keys: |
             pnpm-store-${{ runner.os }}-
 
-      # Cache Tauri CLI binary (avoid recompiling on every run)
+      # Cache Tauri CLI binary
       - name: Cache Tauri CLI
         uses: actions/cache@v4
         with:
@@ -260,7 +241,6 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
         env:
-          PKG_CONFIG_PATH: /usr/lib/x86_64-linux-gnu/pkgconfig:/usr/lib/pkgconfig:/usr/share/pkgconfig
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
 
   # ─────────────────────────────────────────────────────────────
@@ -425,30 +405,12 @@ jobs:
           fail-on-error: false
 
   # ─────────────────────────────────────────────────────────────
-  # E2E Desktop trigger check: main, [e2e] in commit, or /e2e-desktop comment on PR
-  # ─────────────────────────────────────────────────────────────
-  e2e-trigger-check:
-    runs-on: ubuntu-latest
-    outputs:
-      run_e2e: ${{ steps.check.outputs.should_run }}
-    steps:
-      - uses: actions/checkout@v4
-      - name: Check if e2e-desktop should run
-        id: check
-        uses: ./.github/actions/check-comment-trigger
-        with:
-          trigger: '/e2e-desktop'
-          check_main: 'true'
-          check_commit: 'true'
-
-  # ─────────────────────────────────────────────────────────────
-  # E2E Tests (Desktop app with WebDriver - Linux/Windows only)
-  # Runs when: main branch, [e2e] in commit, or /e2e-desktop comment on PR
-  # Runs in parallel with build for faster CI (cache helps on subsequent runs)
+  # E2E Tests (Desktop app with WebDriver - Linux/Windows)
+  # Runs on all commits; skip with [skip e2e] in commit message
   # ─────────────────────────────────────────────────────────────
   e2e-desktop:
-    needs: [e2e-trigger-check]
-    if: needs.e2e-trigger-check.outputs.run_e2e == 'true'
+    needs: [rust-check, ts-check]
+    if: "!contains(github.event.head_commit.message, '[skip e2e]')"
     uses: ./.github/workflows/e2e-desktop.yml
     with:
       ref: ${{ github.event.pull_request.head.sha || github.sha }}

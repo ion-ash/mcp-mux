@@ -1,5 +1,5 @@
 name: Install Linux deps
-description: Install build and runtime deps for Tauri app on Ubuntu (with caching)
+description: Install build and runtime deps for Tauri app on Ubuntu
 inputs:
   e2e:
     description: Include E2E desktop deps (webkit2gtk-driver, xvfb, gnome-keyring)
@@ -12,20 +12,19 @@ inputs:
 runs:
   using: composite
   steps:
-    # Cache apt packages to avoid re-downloading on every run
-    # Uses awalsh128/cache-apt-pkgs-action for efficient caching
-    - name: Cache apt packages (base)
-      uses: awalsh128/cache-apt-pkgs-action@latest
-      with:
-        packages: build-essential pkg-config libglib2.0-dev libgtk-3-dev libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libsecret-1-dev
-        version: 1.0
-
-    - name: Cache apt packages (E2E)
-      if: ${{ inputs.e2e == 'true' }}
-      uses: awalsh128/cache-apt-pkgs-action@latest
-      with:
-        packages: webkit2gtk-driver xvfb gnome-keyring gsettings-desktop-schemas dbus-x11 at-spi2-core
-        version: 1.1
+    - name: Install Linux deps
+      shell: bash
+      run: |
+        BASE_DEPS="build-essential pkg-config libglib2.0-dev libgtk-3-dev libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libsecret-1-dev"
+        E2E_DEPS="webkit2gtk-driver xvfb gnome-keyring gsettings-desktop-schemas dbus-x11 at-spi2-core libglib2.0-bin"
+        sudo apt-get update
+        if [ "${{ inputs.e2e }}" = "true" ]; then
+          sudo apt-get install -y $BASE_DEPS $E2E_DEPS
+          # Compile gsettings schemas to make them available
+          sudo glib-compile-schemas /usr/share/glib-2.0/schemas/ || true
+        else
+          sudo apt-get install -y $BASE_DEPS
+        fi
 
     - name: Verify glib installation
       if: ${{ inputs.verify_glib == 'true' }}
