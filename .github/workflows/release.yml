@@ -24,6 +24,7 @@ jobs:
     outputs:
       published: ${{ steps.changesets.outputs.published }}
       publishedPackages: ${{ steps.changesets.outputs.publishedPackages }}
+      version: ${{ steps.get-version.outputs.version }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -44,8 +45,17 @@ jobs:
           title: 'chore: version packages'
           commit: 'chore: version packages'
           version: pnpm changeset version
+          publish: pnpm run publish
+          createGithubReleases: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Get version from package.json
+        id: get-version
+        if: steps.changesets.outputs.published == 'true'
+        run: |
+          VERSION=$(node -p "require('./apps/desktop/package.json').version")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
 
   # ─────────────────────────────────────────────────────────────
   # Build and Release: Triggered when changesets publishes
@@ -136,9 +146,9 @@ jobs:
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         with:
-          tagName: v__VERSION__
-          releaseName: 'McpMux v__VERSION__'
-          releaseBody: 'See the changelog for details.'
+          tagName: v${{ needs.changesets.outputs.version }}
+          releaseName: 'McpMux v${{ needs.changesets.outputs.version }}'
+          releaseBody: ''
           releaseDraft: false
           prerelease: false
           updaterJsonKeepUniversal: true
