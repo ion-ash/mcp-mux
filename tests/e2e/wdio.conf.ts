@@ -315,6 +315,19 @@ export const config: Options.Testrunner = {
   // Stop tauri-driver after the session
   afterSession: function () {
     closeTauriDriver();
+    
+    // Clear single-instance lock to prevent conflicts between test workers
+    // On Linux: ~/.local/share/com.mcpmux.desktop/.single-instance-lock
+    // On Windows: %LOCALAPPDATA%\com.mcpmux.desktop\.single-instance-lock
+    try {
+      const lockFilePath = path.join(APP_DATA_DIR, '.single-instance-lock');
+      if (fs.existsSync(lockFilePath)) {
+        fs.unlinkSync(lockFilePath);
+        console.log('[e2e] Cleared single-instance lock');
+      }
+    } catch (error) {
+      console.warn('[e2e] Failed to clear single-instance lock:', error);
+    }
   },
 
   // Clean up mock servers after all tests complete
