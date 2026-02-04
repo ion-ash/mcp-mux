@@ -69,9 +69,32 @@ commit_parsers = [
 
 # Convert issue/PR references to links
 commit_preprocessors = [
-    { pattern = "\\(#([0-9]+)\\)", replace = "([#${1}](https://github.com/AiAndMore/mcp-mux/pull/${1}))" },
+    { pattern = "\\(#([0-9]+)\\)", replace = "([#${1}](https://github.com/MCP-Mux/mcp-mux/pull/${1}))" },
 ]
 
+# Only release the main desktop app, not the library crates
 [[package]]
 name = "mcpmux"
 changelog_path = "CHANGELOG.md"
+release = true
+
+# Disable release for library crates (they're internal, not published)
+[[package]]
+name = "mcpmux-core"
+release = false
+
+[[package]]
+name = "mcpmux-gateway"
+release = false
+
+[[package]]
+name = "mcpmux-mcp"
+release = false
+
+[[package]]
+name = "mcpmux-storage"
+release = false
+
+[[package]]
+name = "tests"
+release = false
