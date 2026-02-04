@@ -1,0 +1,77 @@
+# release-plz configuration for McpMux Tauri Desktop App
+# https://release-plz.dev/docs/config
+
+[workspace]
+# Use git tags for version detection (not crates.io) - we're a desktop app
+git_only = true
+
+# Enable GitHub releases
+git_release_enable = true
+git_tag_enable = true
+
+# Tag and release naming
+git_tag_name = "v{{ version }}"
+git_release_name = "McpMux v{{ version }}"
+
+# Release PR configuration
+release_always = false  # Only release when PR is merged
+pr_name = "chore: release v{{ version }}"
+pr_labels = ["release", "automated"]
+pr_draft = false
+
+# Don't run cargo semver-checks (not a library)
+semver_check = false
+
+# Don't publish to crates.io
+publish = false
+
+[changelog]
+header = """# Changelog
+
+All notable changes to McpMux will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+"""
+
+body = """
+{% if version %}
+## [{{ version }}]{% if release_link %}({{ release_link }}){% endif %} - {{ timestamp | date(format="%Y-%m-%d") }}
+{% endif %}
+{% for group, commits in commits | group_by(attribute="group") %}
+### {{ group | upper_first }}
+{% for commit in commits %}
+- {% if commit.scope %}*({{ commit.scope }})* {% endif %}{% if commit.breaking %}**BREAKING:** {% endif %}{{ commit.message }}
+{%- if commit.links %} ({% for link in commit.links %}[{{ link.text }}]({{ link.href }}){% endfor %}){% endif %}
+{% endfor %}
+{% endfor %}
+"""
+
+trim = true
+protect_breaking_commits = true
+
+# Conventional commit parsing
+commit_parsers = [
+    { message = "^feat", group = "Features" },
+    { message = "^fix", group = "Bug Fixes" },
+    { message = "^perf", group = "Performance" },
+    { message = "^refactor", group = "Refactoring" },
+    { message = "^docs", group = "Documentation" },
+    { message = "^style", group = "Styling" },
+    { message = "^test", group = "Testing" },
+    { message = "^chore\\(deps\\)", group = "Dependencies" },
+    { message = "^chore\\(release\\)", skip = true },
+    { message = "^chore", skip = true },
+    { message = "^ci", skip = true },
+    { message = "^build", skip = true },
+]
+
+# Convert issue/PR references to links
+commit_preprocessors = [
+    { pattern = "\\(#([0-9]+)\\)", replace = "([#${1}](https://github.com/AiAndMore/mcp-mux/pull/${1}))" },
+]
+
+[[package]]
+name = "mcpmux"
+changelog_path = "CHANGELOG.md"
