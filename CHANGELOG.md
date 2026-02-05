@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.0.3](https://github.com/MCP-Mux/mcp-mux/compare/v0.0.2...v0.0.3) (2026-02-05)
+
+
+### Features
+
+* initial release of McpMux desktop app ([72181e2](https://github.com/MCP-Mux/mcp-mux/commit/72181e2b462f4f70eb586758e8bd029dcb3b7631))
+
+
+### Bug Fixes
+
+* add projectPath to tauri-action for monorepo support ([0299a23](https://github.com/MCP-Mux/mcp-mux/commit/0299a23c5f995b4bae670ef709134967a19c6ee3))
+
 ## [0.0.2](https://github.com/MCP-Mux/mcp-mux/compare/v0.0.1...v0.0.2) (2026-02-05)
 
 
