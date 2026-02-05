@@ -82,6 +82,8 @@ name = "mcpmux"
 # Path relative to workspace root (not package root)
 changelog_path = "CHANGELOG.md"
 release = true
+git_only = true
+publish = false
 # Include commits from internal crates in the main changelog
 changelog_include = ["mcpmux-core", "mcpmux-gateway", "mcpmux-mcp", "mcpmux-storage"]
 
@@ -89,19 +91,29 @@ changelog_include = ["mcpmux-core", "mcpmux-gateway", "mcpmux-mcp", "mcpmux-stor
 [[package]]
 name = "mcpmux-core"
 release = false
+git_only = true
+publish = false
 
 [[package]]
 name = "mcpmux-gateway"
 release = false
+git_only = true
+publish = false
 
 [[package]]
 name = "mcpmux-mcp"
 release = false
+git_only = true
+publish = false
 
 [[package]]
 name = "mcpmux-storage"
 release = false
+git_only = true
+publish = false
 
 [[package]]
 name = "tests"
 release = false
+git_only = true
+publish = false
