@@ -26,7 +26,7 @@ semver_check = false
 publish = false
 
 # Skip cargo package verification (internal deps don't have version specs)
-cargo_package_verify = false
+publish_no_verify = true
 
 [changelog]
 header = """# Changelog
