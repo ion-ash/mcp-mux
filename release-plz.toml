@@ -14,7 +14,7 @@ git_tag_name = "v{{ version }}"
 git_release_name = "McpMux v{{ version }}"
 
 # Release PR configuration
-release_always = false  # Only release when PR is merged
+release_always = true  # Release on every push if version is untagged
 pr_name = "chore: release v{{ version }}"
 pr_labels = ["release", "automated"]
 pr_draft = false
