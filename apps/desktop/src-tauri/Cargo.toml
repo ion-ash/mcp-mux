@@ -1,6 +1,6 @@
 [package]
 name = "mcpmux"
-version.workspace = true
+version = "0.0.2"
 edition.workspace = true
 publish = false
 description = "McpMux - Centralized MCP Server Management"
@@ -41,8 +41,8 @@ dotenvy.workspace = true
 notify = { version = "7", default-features = false, features = ["macos_fsevent"] }
 notify-debouncer-mini = "0.5"
 
-# Internal crates
-mcpmux-core = { version = "0.0.2", path = "../../../crates/mcpmux-core" }
-mcpmux-gateway = { version = "0.0.2", path = "../../../crates/mcpmux-gateway" }
-mcpmux-storage = { version = "0.0.2", path = "../../../crates/mcpmux-storage" }
+# Internal crates (path-only, no version needed)
+mcpmux-core.workspace = true
+mcpmux-gateway.workspace = true
+mcpmux-storage.workspace = true
 
