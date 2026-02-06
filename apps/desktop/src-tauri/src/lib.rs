@@ -526,13 +526,13 @@ pub fn run() {
             if let Some(main_window) = app.get_webview_window("main") {
                 let app_handle = app.handle().clone();
                 let settings_repo = app_state.settings_repository.clone();
-                
+
                 main_window.on_window_event(move |event| {
                     if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                         // Check if close-to-tray is enabled
                         let app_handle_clone = app_handle.clone();
                         let settings_clone = settings_repo.clone();
-                        
+
                         tauri::async_runtime::spawn(async move {
                             match settings_clone.get("ui.close_to_tray").await {
                                 Ok(Some(value)) if value == "true" => {
@@ -556,7 +556,7 @@ pub fn run() {
                                 }
                             }
                         });
-                        
+
                         // Always prevent default close to handle it asynchronously
                         api.prevent_close();
                     }

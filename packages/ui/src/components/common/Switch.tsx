@@ -36,8 +36,10 @@ export function Switch({
       onClick={handleClick}
       data-testid={testId}
       className={cn(
-        'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-[rgb(var(--primary))] focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50',
-        checked ? 'bg-[rgb(var(--primary))]' : 'bg-surface-secondary',
+        'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-[rgb(var(--primary))] focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50',
+        checked 
+          ? 'bg-[rgb(var(--primary))] border-transparent' 
+          : 'bg-gray-300 dark:bg-gray-600 border-gray-400 dark:border-gray-500',
         className
       )}
     >
