@@ -3,7 +3,7 @@
 use serde::{Deserialize, Serialize};
 use tauri::State;
 use tauri_plugin_autostart::AutoLaunchManager;
-use tracing::{debug, error, info};
+use tracing::{debug, info};
 
 use crate::state::AppState;
 
@@ -42,7 +42,6 @@ pub async fn get_startup_settings(
     // Get auto-launch status from the OS
     let auto_launch = manager
         .is_enabled()
-        .await
         .map_err(|e| format!("Failed to check auto-launch status: {}", e))?;
 
     // Get other settings from database
@@ -82,13 +81,11 @@ pub async fn update_startup_settings(
     if settings.auto_launch {
         manager
             .enable()
-            .await
             .map_err(|e| format!("Failed to enable auto-launch: {}", e))?;
         info!("[Settings] Auto-launch enabled");
     } else {
         manager
             .disable()
-            .await
             .map_err(|e| format!("Failed to disable auto-launch: {}", e))?;
         info!("[Settings] Auto-launch disabled");
     }
