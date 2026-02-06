@@ -7,6 +7,7 @@ import {
   CardDescription,
   CardContent,
   Button,
+  Switch,
 } from '@mcpmux/ui';
 import {
   Sun,
@@ -15,15 +16,33 @@ import {
   FileText,
   FolderOpen,
   Loader2,
+  Power,
+  Minimize2,
+  XCircle,
 } from 'lucide-react';
 import { useAppStore, useTheme } from '@/stores';
 import { UpdateChecker } from './UpdateChecker';
+
+interface StartupSettings {
+  autoLaunch: boolean;
+  startMinimized: boolean;
+  closeToTray: boolean;
+}
 
 export function SettingsPage() {
   const theme = useTheme();
   const setTheme = useAppStore((state) => state.setTheme);
   const [logsPath, setLogsPath] = useState<string>('');
   const [openingLogs, setOpeningLogs] = useState(false);
+
+  // Startup settings state
+  const [startupSettings, setStartupSettings] = useState<StartupSettings>({
+    autoLaunch: false,
+    startMinimized: false,
+    closeToTray: true,
+  });
+  const [loadingSettings, setLoadingSettings] = useState(true);
+  const [savingSettings, setSavingSettings] = useState(false);
 
   // Load logs path on mount
   useEffect(() => {
@@ -37,6 +56,49 @@ export function SettingsPage() {
     };
     loadLogsPath();
   }, []);
+
+  // Load startup settings on mount
+  useEffect(() => {
+    const loadStartupSettings = async () => {
+      try {
+        const settings = await invoke<StartupSettings>('get_startup_settings');
+        setStartupSettings(settings);
+      } catch (error) {
+        console.error('Failed to load startup settings:', error);
+      } finally {
+        setLoadingSettings(false);
+      }
+    };
+    loadStartupSettings();
+  }, []);
+
+  // Save startup settings when they change
+  const updateStartupSetting = async (
+    key: keyof StartupSettings,
+    value: boolean
+  ) => {
+    console.log(`[Settings] Updating ${key} to ${value}`);
+    
+    // Save old state for rollback
+    const oldSettings = { ...startupSettings };
+    const newSettings = { ...startupSettings, [key]: value };
+    
+    // Update UI immediately for better UX
+    setStartupSettings(newSettings);
+    setSavingSettings(true);
+    
+    try {
+      console.log('[Settings] Invoking update_startup_settings:', newSettings);
+      await invoke('update_startup_settings', { settings: newSettings });
+      console.log('[Settings] Successfully saved:', newSettings);
+    } catch (error) {
+      console.error('[Settings] Failed to save:', error);
+      // Revert on error
+      setStartupSettings(oldSettings);
+    } finally {
+      setSavingSettings(false);
+    }
+  };
 
   const handleOpenLogs = async () => {
     setOpeningLogs(true);
@@ -58,6 +120,98 @@ export function SettingsPage() {
 
       {/* Updates Section */}
       <UpdateChecker />
+
+      {/* Startup & System Tray Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Power className="h-5 w-5" />
+            Startup & System Tray
+          </CardTitle>
+          <CardDescription>
+            Control how McpMux starts and behaves with the system tray.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {loadingSettings ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-[rgb(var(--muted))]" />
+            </div>
+          ) : (
+            <div className="space-y-6">
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-start gap-3 flex-1 min-w-0">
+                  <Power className="h-5 w-5 mt-0.5 text-[rgb(var(--muted))] flex-shrink-0" />
+                  <div>
+                    <label className="text-sm font-medium">Launch at Startup</label>
+                    <p className="text-xs text-[rgb(var(--muted))] mt-1">
+                      Start McpMux automatically when you log in to your system
+                    </p>
+                  </div>
+                </div>
+                <Switch
+                  checked={startupSettings.autoLaunch}
+                  onCheckedChange={(checked) => {
+                    console.log('Auto-launch toggled:', checked);
+                    updateStartupSetting('autoLaunch', checked);
+                  }}
+                  disabled={savingSettings}
+                  data-testid="auto-launch-switch"
+                />
+              </div>
+
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-start gap-3 flex-1 min-w-0">
+                  <Minimize2 className="h-5 w-5 mt-0.5 text-[rgb(var(--muted))] flex-shrink-0" />
+                  <div>
+                    <label className="text-sm font-medium">Start Minimized</label>
+                    <p className="text-xs text-[rgb(var(--muted))] mt-1">
+                      Launch in background to system tray (requires auto-launch enabled)
+                    </p>
+                  </div>
+                </div>
+                <Switch
+                  checked={startupSettings.startMinimized}
+                  onCheckedChange={(checked) => {
+                    console.log('Start minimized toggled:', checked);
+                    updateStartupSetting('startMinimized', checked);
+                  }}
+                  disabled={savingSettings || !startupSettings.autoLaunch}
+                  data-testid="start-minimized-switch"
+                />
+              </div>
+
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-start gap-3 flex-1 min-w-0">
+                  <XCircle className="h-5 w-5 mt-0.5 text-[rgb(var(--muted))] flex-shrink-0" />
+                  <div>
+                    <label className="text-sm font-medium">Close to Tray</label>
+                    <p className="text-xs text-[rgb(var(--muted))] mt-1">
+                      Keep running in system tray when window is closed (use "Quit" from tray to exit)
+                    </p>
+                  </div>
+                </div>
+                <Switch
+                  checked={startupSettings.closeToTray}
+                  onCheckedChange={(checked) => {
+                    console.log('Close to tray toggled:', checked);
+                    updateStartupSetting('closeToTray', checked);
+                  }}
+                  disabled={savingSettings}
+                  data-testid="close-to-tray-switch"
+                />
+              </div>
+
+              {savingSettings && (
+                <div className="flex items-center gap-2 text-sm text-[rgb(var(--muted))]">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Saving settings...
+                </div>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Appearance Section */}
       <Card>

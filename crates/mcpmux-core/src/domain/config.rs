@@ -1,6 +1,6 @@
 use crate::domain::server::{
-    AuthConfig, InputDefinition, PublisherInfo, ServerDefinition, ServerSource, TransportConfig,
-    TransportMetadata,
+    AuthConfig, HostingType, InputDefinition, PublisherInfo, ServerDefinition, ServerSource,
+    TransportConfig, TransportMetadata,
 };
 use lazy_static::lazy_static;
 use regex::Regex;
@@ -125,6 +125,15 @@ impl UserServerEntry {
                 space_id: space_id.to_string(),
                 file_path,
             },
+            badges: vec![],
+            hosting_type: HostingType::default(),
+            license: None,
+            license_url: None,
+            installation: None,
+            capabilities: None,
+            sponsored: None,
+            media: None,
+            changelog_url: None,
         }
     }
 

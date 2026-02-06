@@ -12,6 +12,8 @@ on:
     secrets:
       TAURI_SIGNING_PRIVATE_KEY:
         required: false
+      TAURI_SIGNING_PRIVATE_KEY_PASSWORD:
+        required: false
 
 env:
   PKG_CONFIG_PATH: /usr/lib/x86_64-linux-gnu/pkgconfig:/usr/lib/pkgconfig:/usr/share/pkgconfig
@@ -95,11 +97,20 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      - name: Build app
-        run: pnpm build
+      - name: Build app (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: pnpm --filter @mcpmux/desktop exec tauri build --bundles deb,rpm,updater
         env:
           PKG_CONFIG_PATH: /usr/lib/x86_64-linux-gnu/pkgconfig:/usr/lib/pkgconfig:/usr/share/pkgconfig
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+
+      - name: Build app (Windows)
+        if: matrix.os == 'windows-latest'
+        run: pnpm build
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
 
       - name: Run desktop E2E tests (Linux)
         if: matrix.os == 'ubuntu-latest'

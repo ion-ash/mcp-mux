@@ -20,6 +20,8 @@ tauri-plugin-opener = "2"
 tauri-plugin-single-instance = "2"
 tauri-plugin-deep-link = "2"
 tauri-plugin-updater = "2"
+tauri-plugin-autostart = "2"
+image = { version = "0.25", default-features = false, features = ["png"] }
 serde.workspace = true
 serde_json.workspace = true
 tokio.workspace = true
@@ -38,11 +40,12 @@ url.workspace = true
 urlencoding = "2.1"
 open = "5.3"
 dotenvy.workspace = true
-notify = { version = "7", default-features = false, features = ["macos_fsevent"] }
+notify = { version = "7", default-features = false, features = [
+    "macos_fsevent",
+] }
 notify-debouncer-mini = "0.5"
 
 # Internal crates (path-only, no version needed)
 mcpmux-core.workspace = true
 mcpmux-gateway.workspace = true
 mcpmux-storage.workspace = true
-

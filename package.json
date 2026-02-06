@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "setup": "pwsh -ExecutionPolicy Bypass -File scripts/setup-dev.ps1",
+    "prepare": "node -e \"try{require('fs').chmodSync('.git/hooks/pre-commit',0o755)}catch(e){}\"",
     "dev": "pnpm --filter @mcpmux/desktop dev",
     "dev:web": "pnpm --filter @mcpmux/desktop dev:web",
     "build": "pnpm --filter @mcpmux/desktop build",
@@ -30,6 +31,7 @@
     "format": "prettier --write . && cargo fmt --all",
     "format:check": "prettier --check . && cargo fmt --all --check",
     "typecheck": "pnpm -r typecheck",
+    "validate": "cargo fmt --all && cargo clippy --workspace -- -D warnings && cargo check --workspace && pnpm lint && pnpm typecheck",
     "clean": "pnpm -r clean && cargo clean"
   },
   "devDependencies": {
