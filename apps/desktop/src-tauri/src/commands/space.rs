@@ -111,10 +111,13 @@ pub async fn create_space(
         });
     }
 
-    // Update system tray menu
+    // Update system tray menu to show the new space
+    // Only reached if both space creation and config file writing succeeded
     if let Err(e) = tray::update_tray_spaces(&app, &state).await {
         warn!("Failed to update tray menu: {}", e);
     }
+
+    info!("[create_space] Space '{}' created successfully", space.name);
 
     Ok(space)
 }
@@ -142,10 +145,13 @@ pub async fn delete_space(
         gw.emit_domain_event(mcpmux_core::DomainEvent::SpaceDeleted { space_id: uuid });
     }
 
-    // Update system tray menu
+    // Update system tray menu to remove the deleted space
+    // Only reached if space deletion from DB succeeded
     if let Err(e) = tray::update_tray_spaces(&app, &state).await {
         warn!("Failed to update tray menu: {}", e);
     }
+
+    info!("[delete_space] Space '{}' deleted successfully", uuid);
 
     Ok(())
 }
@@ -238,7 +244,7 @@ pub async fn set_active_space<R: tauri::Runtime>(
     let event = SpaceChangeEvent {
         from_space_id: old_space.map(|s| s.id.to_string()),
         to_space_id: new_space.id.to_string(),
-        to_space_name: new_space.name,
+        to_space_name: new_space.name.clone(),
         clients_needing_confirmation: clients_needing_confirmation.clone(),
     };
 
@@ -255,10 +261,13 @@ pub async fn set_active_space<R: tauri::Runtime>(
     // will be emitted by the gateway when they make their next request
     // and the SpaceResolver returns the new active space.
 
-    // Update system tray menu to reflect new active space
+    // Update system tray menu to show checkmark (✓) on the newly active space
+    // Only reached if set_active operation succeeded in DB
     if let Err(e) = tray::update_tray_spaces(&app_handle, &state).await {
         warn!("Failed to update tray menu: {}", e);
     }
+
+    info!("[set_active_space] Switched to space '{}'", new_space.name);
 
     Ok(())
 }
