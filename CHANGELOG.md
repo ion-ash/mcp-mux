@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.0.6](https://github.com/MCP-Mux/mcp-mux/compare/v0.0.5...v0.0.6) (2026-02-06)
+
+
+### Features
+
+* add autostart and system tray functionality ([#38](https://github.com/MCP-Mux/mcp-mux/issues/38)) ([cc99fcf](https://github.com/MCP-Mux/mcp-mux/commit/cc99fcf412f24f48edba12b8f0359fa71b5247c6))
+* implement Tauri updater functionality ([#36](https://github.com/MCP-Mux/mcp-mux/issues/36)) ([d355c68](https://github.com/MCP-Mux/mcp-mux/commit/d355c68a4b33901adb7f9be8c0765252f8c3577f))
+
 ## [0.0.5](https://github.com/MCP-Mux/mcp-mux/compare/v0.0.4...v0.0.5) (2026-02-05)
 
 
