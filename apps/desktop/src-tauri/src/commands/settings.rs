@@ -23,7 +23,7 @@ impl Default for StartupSettings {
     fn default() -> Self {
         Self {
             auto_launch: false,
-            start_minimized: false,
+            start_minimized: true,
             close_to_tray: true, // Default to close-to-tray behavior
         }
     }
@@ -50,7 +50,7 @@ pub async fn get_startup_settings(
         .await
         .map_err(|e| format!("Failed to get start_minimized setting: {}", e))?
         .map(|v| v == "true")
-        .unwrap_or(false);
+        .unwrap_or(true);
 
     let close_to_tray = settings_repo
         .get("ui.close_to_tray")
@@ -128,7 +128,7 @@ mod tests {
     fn test_startup_settings_default() {
         let settings = StartupSettings::default();
         assert_eq!(settings.auto_launch, false);
-        assert_eq!(settings.start_minimized, false);
+        assert_eq!(settings.start_minimized, true);
         assert_eq!(settings.close_to_tray, true);
     }
 
