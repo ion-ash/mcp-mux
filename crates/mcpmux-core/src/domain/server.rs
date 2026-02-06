@@ -192,18 +192,13 @@ pub enum Badge {
 }
 
 /// Where the server runs
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "lowercase")]
 pub enum HostingType {
+    #[default]
     Local,
     Remote,
     Hybrid,
-}
-
-impl Default for HostingType {
-    fn default() -> Self {
-        Self::Local
-    }
 }
 
 /// Installation complexity level

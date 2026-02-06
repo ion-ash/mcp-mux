@@ -31,7 +31,7 @@
     "format": "prettier --write . && cargo fmt --all",
     "format:check": "prettier --check . && cargo fmt --all --check",
     "typecheck": "pnpm -r typecheck",
-    "validate": "cargo check --workspace && pnpm typecheck",
+    "validate": "cargo fmt --all && cargo clippy --workspace -- -D warnings && cargo check --workspace && pnpm typecheck",
     "clean": "pnpm -r clean && cargo clean"
   },
   "devDependencies": {

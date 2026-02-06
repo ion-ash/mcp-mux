@@ -8,6 +8,7 @@ The pre-commit hook automatically runs before each commit to validate:
 
 ### ✅ **Rust Validation**
 - Formats Rust code with `cargo fmt`
+- Runs `cargo clippy --workspace -- -D warnings` to catch linting issues
 - Runs `cargo check --workspace` to verify compilation
 - Automatically adds formatted files to the commit
 
@@ -42,6 +43,7 @@ To test the validation without committing:
 pnpm validate
 
 # Or individually
+cargo clippy --workspace -- -D warnings
 cargo check --workspace
 pnpm typecheck
 ```
