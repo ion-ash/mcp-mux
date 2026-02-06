@@ -11,7 +11,7 @@ The pre-commit hook automatically runs before each commit to validate:
 - Runs `cargo check --workspace` to verify compilation
 - Automatically adds formatted files to the commit
 
-### ✅ **TypeScript Validation**  
+### ✅ **TypeScript Validation**
 - Runs `pnpm typecheck` to verify type correctness
 - Checks all TypeScript files in the workspace
 
