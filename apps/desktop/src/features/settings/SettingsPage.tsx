@@ -34,7 +34,7 @@ export function SettingsPage() {
   const setTheme = useAppStore((state) => state.setTheme);
   const [logsPath, setLogsPath] = useState<string>('');
   const [openingLogs, setOpeningLogs] = useState(false);
-  
+
   // Startup settings state
   const [startupSettings, setStartupSettings] = useState<StartupSettings>({
     autoLaunch: false,
@@ -79,7 +79,7 @@ export function SettingsPage() {
   ) => {
     const newSettings = { ...startupSettings, [key]: value };
     setStartupSettings(newSettings);
-    
+
     setSavingSettings(true);
     try {
       await invoke('update_startup_settings', { settings: newSettings });

@@ -193,6 +193,7 @@ pub fn run() {
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
             Some(vec!["--hidden"]), // Start minimized to tray
         ))
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_single_instance::init(|app, args, cwd| {
             // This callback is called when a second instance is launched
             info!("Second instance detected, focusing existing window");
