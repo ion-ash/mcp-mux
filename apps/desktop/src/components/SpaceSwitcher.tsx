@@ -5,7 +5,7 @@ import {
   Plus,
   Loader2,
 } from 'lucide-react';
-import { Button } from '@mcpmux/ui';
+import { Button, useToast, ToastContainer } from '@mcpmux/ui';
 import {
   useAppStore,
   useActiveSpace,
@@ -25,6 +25,7 @@ export function SpaceSwitcher({ className = '' }: SpaceSwitcherProps) {
   const [newName, setNewName] = useState('');
   const [showCreateInput, setShowCreateInput] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const { toasts, success, error: showError, dismiss } = useToast();
 
   const spaces = useSpaces();
   const activeSpace = useActiveSpace();
@@ -56,8 +57,10 @@ export function SpaceSwitcher({ className = '' }: SpaceSwitcherProps) {
       await setActiveSpaceAPI(spaceId);
       setActiveSpaceInStore(spaceId);
       setIsOpen(false);
+      const activatedSpace = spaces.find(s => s.id === spaceId);
+      success('Space activated', `Switched to "${activatedSpace?.name || 'Space'}"`);
     } catch (e) {
-      console.error('Failed to switch space:', e);
+      showError('Failed to switch space', e instanceof Error ? e.message : String(e));
     }
   };
 
@@ -73,8 +76,9 @@ export function SpaceSwitcher({ className = '' }: SpaceSwitcherProps) {
       setNewName('');
       setShowCreateInput(false);
       setIsOpen(false);
+      success('Space created', `"${space.name}" has been created and activated`);
     } catch (e) {
-      console.error('Failed to create space:', e);
+      showError('Failed to create space', e instanceof Error ? e.message : String(e));
     } finally {
       setIsCreating(false);
     }
@@ -82,6 +86,7 @@ export function SpaceSwitcher({ className = '' }: SpaceSwitcherProps) {
 
   return (
     <div ref={dropdownRef} className={`relative ${className}`}>
+      <ToastContainer toasts={toasts} onClose={dismiss} />
       {/* Trigger Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}

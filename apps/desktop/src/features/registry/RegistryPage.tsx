@@ -6,6 +6,7 @@
 
 import { useEffect, useState } from 'react';
 import { ChevronDown } from 'lucide-react';
+import { useToast, ToastContainer } from '@mcpmux/ui';
 import { useRegistryStore } from '../../stores/registryStore';
 import { ServerCard } from './ServerCard';
 import { ServerDetailModal } from './ServerDetailModal';
@@ -37,6 +38,7 @@ export function RegistryPage() {
 
   const [localSearch, setLocalSearch] = useState('');
   const viewSpace = useViewSpace();
+  const { toasts, success, error: showToastError, dismiss } = useToast();
 
   const itemsPerPage = uiConfig?.items_per_page ?? 24;
 
@@ -89,13 +91,27 @@ export function RegistryPage() {
   }, [localSearch, searchQuery, search]);
 
   const handleInstall = async (id: string) => {
-    await installServer(id, viewSpace?.id);
+    const server = servers.find(s => s.id === id);
+    const serverName = server?.name || 'Server';
+    try {
+      await installServer(id, viewSpace?.id);
+      success('Server installed', `"${serverName}" has been installed`);
+    } catch {
+      showToastError('Install failed', `Failed to install "${serverName}"`);
+    }
   };
 
   const handleUninstall = async (id: string) => {
-    await uninstallServer(id);
-    if (selectedServer?.id === id) {
-      selectServer(null);
+    const server = servers.find(s => s.id === id);
+    const serverName = server?.name || 'Server';
+    try {
+      await uninstallServer(id);
+      if (selectedServer?.id === id) {
+        selectServer(null);
+      }
+      success('Server uninstalled', `"${serverName}" has been uninstalled`);
+    } catch {
+      showToastError('Uninstall failed', `Failed to uninstall "${serverName}"`);
     }
   };
 
@@ -104,6 +120,7 @@ export function RegistryPage() {
 
   return (
     <div className="h-full flex flex-col" data-testid="registry-page">
+      <ToastContainer toasts={toasts} onClose={dismiss} />
       {/* Header */}
       <div className="p-6 border-b border-[rgb(var(--border-subtle))]">
         <div className="flex items-center gap-3 mb-1">

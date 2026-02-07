@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { X, Download, Trash2, RefreshCw } from 'lucide-react';
+import { useToast, ToastContainer } from '@mcpmux/ui';
 import { getServerLogs, clearServerLogs, getServerLogFile, type ServerLogEntry } from '@/lib/api/logs';
 
 interface ServerLogViewerProps {
@@ -38,6 +39,7 @@ export function ServerLogViewer({ serverId, serverName, onClose }: ServerLogView
   const [autoRefresh, setAutoRefresh] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const shouldScrollRef = useRef(true);
+  const { toasts, success, error: showError, dismiss } = useToast();
 
   const loadLogs = async () => {
     try {
@@ -97,19 +99,19 @@ export function ServerLogViewer({ serverId, serverName, onClose }: ServerLogView
     try {
       await clearServerLogs(serverId);
       setLogs([]);
+      success('Logs cleared', `All logs for "${serverName}" have been cleared`);
     } catch (e) {
-      alert(`Failed to clear logs: ${e}`);
+      showError('Failed to clear logs', e instanceof Error ? e.message : String(e));
     }
   };
 
   const handleOpenInEditor = async () => {
     try {
       const filePath = await getServerLogFile(serverId);
-      // Copy path to clipboard for user to paste into their editor
       await navigator.clipboard.writeText(filePath);
-      alert(`Log file path copied to clipboard:\n${filePath}\n\nPaste this into your file explorer or text editor.`);
+      success('Path copied', `Log file path copied to clipboard`);
     } catch (e) {
-      alert(`Failed to get log file path: ${e}`);
+      showError('Failed to get log file path', e instanceof Error ? e.message : String(e));
     }
   };
 
@@ -131,6 +133,7 @@ export function ServerLogViewer({ serverId, serverName, onClose }: ServerLogView
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+      <ToastContainer toasts={toasts} onClose={dismiss} />
       <div className="bg-[rgb(var(--card))] border border-[rgb(var(--border-subtle))] rounded-xl shadow-xl w-[90vw] h-[85vh] flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-[rgb(var(--border-subtle))]">

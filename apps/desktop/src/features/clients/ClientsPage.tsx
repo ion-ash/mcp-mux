@@ -25,6 +25,8 @@ import {
   Card,
   CardContent,
   Button,
+  useToast,
+  ToastContainer,
 } from '@mcpmux/ui';
 import type { OAuthClient, UpdateClientRequest } from '@/lib/api/gateway';
 import { listOAuthClients, updateOAuthClient, deleteOAuthClient } from '@/lib/api/gateway';
@@ -97,8 +99,7 @@ export default function ClientsPage() {
   // Panel state
   const [selectedClient, setSelectedClient] = useState<OAuthClient | null>(null);
   
-  // Toast notification for reconnects
-  const [toast, setToast] = useState<{ message: string; type: 'info' | 'success' } | null>(null);
+  const { toasts, success, error: showError, info, dismiss } = useToast();
   
   // Edit state
   const [editAlias, setEditAlias] = useState('');
@@ -264,8 +265,7 @@ export default function ClientsPage() {
       // Show toast for reconnections (silent approval)
       if (event.payload.action === 'reconnected') {
         const name = event.payload.client_name || event.payload.client_id;
-        setToast({ message: `${name} connected`, type: 'info' });
-        setTimeout(() => setToast(null), 3000);
+        info('Client connected', `${name} connected`);
       }
     });
 
@@ -309,17 +309,24 @@ export default function ClientsPage() {
   const toggleFeatureSetGrant = async (featureSetId: string) => {
     if (!selectedClient || !activeSpace) return;
     
+    const featureSet = availableFeatureSets.find(fs => fs.id === featureSetId);
+    const fsName = featureSet?.name || 'Feature set';
+    
     try {
       if (grantedFeatureSetIds.includes(featureSetId)) {
         await revokeOAuthClientFeatureSet(selectedClient.client_id, activeSpace.id, featureSetId);
         setGrantedFeatureSetIds(prev => prev.filter(id => id !== featureSetId));
+        success('Permission revoked', `"${fsName}" removed from client`);
       } else {
         await grantOAuthClientFeatureSet(selectedClient.client_id, activeSpace.id, featureSetId);
         setGrantedFeatureSetIds(prev => [...prev, featureSetId]);
+        success('Permission granted', `"${fsName}" added to client`);
       }
       loadResolvedFeatures(selectedClient.client_id);
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      const msg = e instanceof Error ? e.message : String(e);
+      setError(msg);
+      showError('Failed to update permission', msg);
     }
   };
 
@@ -345,8 +352,11 @@ export default function ClientsPage() {
       ));
       
       setSelectedClient(updated);
+      success('Client settings saved', `"${updated.client_alias || updated.client_name}" has been updated`);
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      const msg = e instanceof Error ? e.message : String(e);
+      setError(msg);
+      showError('Failed to save settings', msg);
     } finally {
       setIsSaving(false);
     }
@@ -355,12 +365,18 @@ export default function ClientsPage() {
   const handleDelete = async (clientId: string) => {
     if (!confirm('Remove this client? All tokens will be revoked.')) return;
     
+    const deletedClient = oauthClients.find(c => c.client_id === clientId);
+    const clientName = deletedClient?.client_alias || deletedClient?.client_name || 'Client';
+    
     try {
       await deleteOAuthClient(clientId);
       setOAuthClients(prev => prev.filter(c => c.client_id !== clientId));
       setSelectedClient(null);
+      success('Client removed', `"${clientName}" and its tokens have been revoked`);
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      const msg = e instanceof Error ? e.message : String(e);
+      setError(msg);
+      showError('Failed to remove client', msg);
     }
   };
 
@@ -440,13 +456,15 @@ export default function ClientsPage() {
     const isAdded = individualFeatureMembers.some(m => m.member_id === featureId);
     console.log('Feature is currently added:', isAdded);
     
+    const feature = availableFeatures.find(f => f.id === featureId);
+    const featureName = feature?.feature_name || 'Feature';
+    
     try {
       if (isAdded) {
-        console.log('Removing feature from set...');
         await removeFeatureFromSet(clientCustomFeatureSet.id, featureId);
         setIndividualFeatureMembers(prev => prev.filter(m => m.member_id !== featureId));
+        success('Feature removed', `"${featureName}" removed from client`);
       } else {
-        console.log('Adding feature to set...');
         await addFeatureToSet(clientCustomFeatureSet.id, featureId, 'include');
         setIndividualFeatureMembers(prev => [...prev, {
           id: '',
@@ -455,14 +473,14 @@ export default function ClientsPage() {
           member_id: featureId,
           mode: 'include',
         }]);
+        success('Feature added', `"${featureName}" added to client`);
       }
       
-      console.log('Reloading resolved features...');
       await loadResolvedFeatures(selectedClient.client_id);
-      console.log('Toggle complete');
     } catch (e) {
-      console.error('Error toggling feature:', e);
-      setError(e instanceof Error ? e.message : String(e));
+      const msg = e instanceof Error ? e.message : String(e);
+      setError(msg);
+      showError('Failed to toggle feature', msg);
     }
   };
 
@@ -1282,21 +1300,7 @@ export default function ClientsPage() {
         </div>
       )}
 
-      {/* Toast notification */}
-      {toast && (
-        <div className="fixed bottom-4 right-4 z-50 animate-in slide-in-from-bottom-4">
-          <div className={`px-4 py-2 rounded-lg shadow-lg ${
-            toast.type === 'success' 
-              ? 'bg-green-600 text-white' 
-              : 'bg-[rgb(var(--surface-elevated))] border border-[rgb(var(--border))] text-[rgb(var(--foreground))]'
-          }`}>
-            <div className="flex items-center gap-2">
-              <Wifi className="h-4 w-4" />
-              <span className="text-sm">{toast.message}</span>
-            </div>
-          </div>
-        </div>
-      )}
+      <ToastContainer toasts={toasts} onClose={dismiss} />
     </div>
   );
 }
