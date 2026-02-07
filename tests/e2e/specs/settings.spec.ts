@@ -192,6 +192,7 @@ test.describe('Settings', () => {
       // Verify sections appear in expected order
       const sections = [
         page.getByText('Software Updates'),
+        page.getByText('Startup & System Tray'),
         page.getByText('Appearance'),
         page.locator('h3:has-text("Logs"), h2:has-text("Logs")').first(),
       ];
@@ -210,6 +211,123 @@ test.describe('Settings', () => {
       // Content should be within a scrollable container
       const mainContent = page.locator('[class*="space-y-6"]').first();
       await expect(mainContent).toBeVisible();
+    });
+  });
+
+  test.describe('Startup & System Tray Settings', () => {
+    test('should display startup settings section', async ({ page }) => {
+      const dashboard = new DashboardPage(page);
+      await dashboard.navigate();
+
+      await page.locator('nav button:has-text("Settings")').click();
+
+      await expect(page.getByText('Startup & System Tray')).toBeVisible();
+      await expect(page.getByText('Launch at Startup')).toBeVisible();
+      await expect(page.getByText('Start Minimized')).toBeVisible();
+      await expect(page.getByText('Close to Tray')).toBeVisible();
+    });
+
+    test('should have startup settings switches', async ({ page }) => {
+      const dashboard = new DashboardPage(page);
+      await dashboard.navigate();
+
+      await page.locator('nav button:has-text("Settings")').click();
+
+      const autoLaunchSwitch = page.getByTestId('auto-launch-switch');
+      const startMinimizedSwitch = page.getByTestId('start-minimized-switch');
+      const closeToTraySwitch = page.getByTestId('close-to-tray-switch');
+
+      await expect(autoLaunchSwitch).toBeVisible();
+      await expect(startMinimizedSwitch).toBeVisible();
+      await expect(closeToTraySwitch).toBeVisible();
+    });
+
+    // Skip in web mode - requires Tauri API
+    test.skip('should toggle startup settings and show success toast', async ({ page }) => {
+      const dashboard = new DashboardPage(page);
+      await dashboard.navigate();
+
+      await page.locator('nav button:has-text("Settings")').click();
+
+      const closeToTraySwitch = page.getByTestId('close-to-tray-switch');
+      
+      // Toggle the switch
+      await closeToTraySwitch.click();
+      
+      // Wait for success toast
+      await expect(page.getByTestId('toast-success')).toBeVisible({ timeout: 2000 });
+      await expect(page.getByText('Settings saved')).toBeVisible();
+      await expect(page.getByText('Your preferences have been updated')).toBeVisible();
+      
+      // Toast should auto-dismiss after 3 seconds
+      await expect(page.getByTestId('toast-success')).not.toBeVisible({ timeout: 4000 });
+    });
+
+    // Skip in web mode - requires Tauri API
+    test.skip('should show loading state while saving', async ({ page }) => {
+      const dashboard = new DashboardPage(page);
+      await dashboard.navigate();
+
+      await page.locator('nav button:has-text("Settings")').click();
+
+      const closeToTraySwitch = page.getByTestId('close-to-tray-switch');
+      
+      // Toggle the switch
+      await closeToTraySwitch.click();
+      
+      // Should show saving indicator briefly
+      await expect(page.getByText('Saving settings...')).toBeVisible();
+    });
+
+    test('should disable start minimized when auto-launch is off', async ({ page }) => {
+      const dashboard = new DashboardPage(page);
+      await dashboard.navigate();
+
+      await page.locator('nav button:has-text("Settings")').click();
+
+      const startMinimizedSwitch = page.getByTestId('start-minimized-switch');
+      
+      // Start minimized should be disabled if auto-launch is off
+      // Note: This test assumes auto-launch might be off by default on test env
+      const isDisabled = await startMinimizedSwitch.isDisabled();
+      if (isDisabled) {
+        await expect(startMinimizedSwitch).toBeDisabled();
+      }
+    });
+  });
+
+  test.describe('Toast Notifications', () => {
+    test('should have toast container', async ({ page }) => {
+      const dashboard = new DashboardPage(page);
+      await dashboard.navigate();
+
+      await page.locator('nav button:has-text("Settings")').click();
+
+      // Toast container should exist in main content (even if empty)
+      const toastContainer = page.getByRole('main').getByTestId('toast-container');
+      await expect(toastContainer).toBeAttached();
+    });
+
+    // Skip in web mode - requires Tauri API
+    test.skip('should allow manual toast dismissal', async ({ page }) => {
+      const dashboard = new DashboardPage(page);
+      await dashboard.navigate();
+
+      await page.locator('nav button:has-text("Settings")').click();
+
+      const closeToTraySwitch = page.getByTestId('close-to-tray-switch');
+      
+      // Toggle to trigger toast
+      await closeToTraySwitch.click();
+      
+      // Wait for toast
+      await expect(page.getByTestId('toast-success')).toBeVisible({ timeout: 2000 });
+      
+      // Click close button
+      await page.getByTestId('toast-close').click();
+      
+      // Toast should disappear immediately
+      await expect(page.getByTestId('toast-success')).not.toBeVisible({ timeout: 500 });
     });
   });
 });

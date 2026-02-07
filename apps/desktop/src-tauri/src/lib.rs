@@ -569,6 +569,61 @@ pub fn run() {
                 }
             }
 
+            // Enable auto-start on first launch if not already configured.
+            // The OS-level autostart is only set if not previously enabled/disabled by the user.
+            // This ensures fresh installs get autostart without requiring manual Settings toggle.
+            {
+                let autostart_manager: tauri::State<'_, tauri_plugin_autostart::AutoLaunchManager> = app.state();
+                match autostart_manager.is_enabled() {
+                    Ok(false) => {
+                        // Check if user has ever explicitly configured autostart
+                        let app_state: tauri::State<'_, AppState> = app.state();
+                        let was_configured = tauri::async_runtime::block_on(async {
+                            app_state.settings_repository
+                                .get("startup.autostart_configured")
+                                .await
+                                .ok()
+                                .flatten()
+                                .is_some()
+                        });
+
+                        if !was_configured {
+                            // First launch: enable autostart and mark as configured
+                            if let Err(e) = autostart_manager.enable() {
+                                warn!("[Autostart] Failed to enable on first launch: {}", e);
+                            } else {
+                                info!("[Autostart] Enabled on first launch");
+                            }
+                            tauri::async_runtime::block_on(async {
+                                let _ = app_state.settings_repository
+                                    .set("startup.autostart_configured", "true")
+                                    .await;
+                            });
+                        }
+                    }
+                    Ok(true) => {
+                        info!("[Autostart] Already enabled");
+                    }
+                    Err(e) => {
+                        warn!("[Autostart] Failed to check status: {}", e);
+                    }
+                }
+            }
+
+            // Register deep link protocol in OS (Windows registry / Linux xdg-mime)
+            // NSIS writes to HKCU, MSI writes to HKLM — both register during install.
+            // This register_all() call is a safety net for dev mode and edge cases
+            // (e.g. AppImage on Linux, portable installs).
+            #[cfg(any(windows, target_os = "linux"))]
+            {
+                use tauri_plugin_deep_link::DeepLinkExt;
+                if let Err(e) = app.deep_link().register_all() {
+                    warn!("[DeepLink] Failed to register protocol schemes: {}", e);
+                } else {
+                    info!("[DeepLink] Protocol schemes registered successfully");
+                }
+            }
+
             // Register deep link handler for when app receives URLs
             #[cfg(desktop)]
             {

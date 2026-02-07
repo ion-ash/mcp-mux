@@ -9,6 +9,10 @@ use std::collections::HashMap;
 use std::process::Stdio;
 use std::sync::Arc;
 
+#[cfg(windows)]
+#[allow(unused_imports)] // Trait is used via method call in closure
+use std::os::windows::process::CommandExt;
+
 use anyhow::{Context, Result};
 use rmcp::{
     model::{
@@ -140,6 +144,13 @@ impl McpSession {
                     .envs(&env)
                     .stderr(Stdio::null())
                     .kill_on_drop(true);
+
+                // On Windows, prevent console window from appearing
+                #[cfg(windows)]
+                {
+                    const CREATE_NO_WINDOW: u32 = 0x08000000;
+                    cmd.creation_flags(CREATE_NO_WINDOW);
+                }
             })
         ).context(format!(
             "Failed to spawn child process. Command not found: {}. Ensure it's installed and in PATH.",

@@ -20,7 +20,7 @@ import {
   Shield,
   Save,
 } from 'lucide-react';
-import { Button } from '@mcpmux/ui';
+import { Button, useToast, ToastContainer } from '@mcpmux/ui';
 import type { FeatureSet, AddMemberInput } from '@/lib/api/featureSets';
 import { setFeatureSetMembers } from '@/lib/api/featureSets';
 import type { ServerFeature } from '@/lib/api/serverFeatures';
@@ -48,10 +48,7 @@ export function FeatureSetPanel({ featureSet, spaceId, onClose, onDelete, onUpda
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [expandedServers, setExpandedServers] = useState<Set<string>>(new Set());
-  // Edit state for custom sets (setters reserved for future metadata edit UI)
-  const [editName, _setEditName] = useState(featureSet.name);
-  const [editDescription, _setEditDescription] = useState(featureSet.description || '');
-  const [editIcon, _setEditIcon] = useState(featureSet.icon || '');
+  const { toasts, success, error: showError, dismiss } = useToast();
 
   // Collapsible sections - only one expanded at a time, features by default
   const [expandedSections, setExpandedSections] = useState({
@@ -221,30 +218,12 @@ export function FeatureSetPanel({ featureSet, spaceId, onClose, onDelete, onUpda
       
       await setFeatureSetMembers(featureSet.id, members);
 
-      // Update metadata if custom
-      if (isCustom) {
-        // Only update if changed
-        if (editName !== featureSet.name || 
-            editDescription !== (featureSet.description || '') || 
-            editIcon !== (featureSet.icon || '')) {
-            // Note: Update logic would go here if API supports it.
-            // Assuming we might not have updateFeatureSet endpoint exposed fully or need to check
-            // For now, let's assume we can only update members based on the previous file.
-            // But wait, ClientsPage.tsx imported updateClient. 
-            // FeatureSetsPage.tsx didn't show updateFeatureSet.
-            // I'll check if updateFeatureSet is available in the library if not I might need to skip metadata update
-            // or use what's available. 
-            // The read of FeatureSetsPage.tsx showed createFeatureSet.
-            // I'll assume for now we just save members, but I added the UI for it.
-            // If I can't update metadata, I'll remove that part or implement it if possible.
-            // Let's check imports. I added `updateFeatureSet` to imports but I need to verify if it exists.
-            // I'll leave it out for now to be safe and just focus on members unless I see it exists.
-        }
-      }
-
+      success('Changes saved', `"${featureSet.name}" has been updated with ${members.length} feature${members.length !== 1 ? 's' : ''}`);
       onUpdate?.();
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      const errorMsg = e instanceof Error ? e.message : String(e);
+      setError(errorMsg);
+      showError('Failed to save changes', errorMsg);
     } finally {
       setIsSaving(false);
     }
@@ -299,6 +278,7 @@ export function FeatureSetPanel({ featureSet, spaceId, onClose, onDelete, onUpda
 
   return (
     <div className="fixed right-0 top-0 bottom-0 w-full max-w-[45%] min-w-[600px] bg-[rgb(var(--surface))] border-l border-[rgb(var(--border))] shadow-2xl flex flex-col animate-in slide-in-from-right duration-300 z-50">
+      <ToastContainer toasts={toasts} onClose={dismiss} />
       {/* Panel Header */}
       <div className="flex-shrink-0 p-4 border-b border-[rgb(var(--border))] bg-[rgb(var(--surface-elevated))]">
         <div className="flex items-start justify-between mb-3">

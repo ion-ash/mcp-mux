@@ -55,6 +55,50 @@ describe('appStore', () => {
 
       expect(useAppStore.getState().viewSpaceId).toBe(useAppStore.getState().activeSpaceId);
     });
+
+    it('should reset activeSpaceId when persisted value points to deleted space', () => {
+      const spaces = [
+        createTestSpace({ name: 'Space A', is_default: false }),
+        createDefaultSpace({ name: 'Default Space' }),
+      ];
+      // Simulate a persisted activeSpaceId that no longer exists in the spaces list
+      useAppStore.setState({ activeSpaceId: 'deleted-space-id' });
+      useAppStore.getState().setSpaces(spaces);
+
+      // Should fallback to the default space
+      expect(useAppStore.getState().activeSpaceId).toBe(spaces[1].id);
+    });
+
+    it('should reset activeSpaceId to first space when no default exists', () => {
+      const spaces = [
+        createTestSpace({ name: 'Space A', is_default: false }),
+        createTestSpace({ name: 'Space B', is_default: false }),
+      ];
+      useAppStore.setState({ activeSpaceId: 'deleted-space-id' });
+      useAppStore.getState().setSpaces(spaces);
+
+      expect(useAppStore.getState().activeSpaceId).toBe(spaces[0].id);
+    });
+
+    it('should keep activeSpaceId when it still exists in spaces list', () => {
+      const spaces = createTestSpaces(3);
+      useAppStore.setState({ activeSpaceId: spaces[1].id });
+      useAppStore.getState().setSpaces(spaces);
+
+      expect(useAppStore.getState().activeSpaceId).toBe(spaces[1].id);
+    });
+
+    it('should reset both activeSpaceId and viewSpaceId when both point to deleted spaces', () => {
+      const spaces = [createDefaultSpace({ name: 'My Space' })];
+      useAppStore.setState({
+        activeSpaceId: 'deleted-active-id',
+        viewSpaceId: 'deleted-view-id',
+      });
+      useAppStore.getState().setSpaces(spaces);
+
+      expect(useAppStore.getState().activeSpaceId).toBe(spaces[0].id);
+      expect(useAppStore.getState().viewSpaceId).toBe(spaces[0].id);
+    });
   });
 
   describe('setActiveSpace', () => {

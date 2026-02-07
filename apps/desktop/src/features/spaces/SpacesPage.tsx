@@ -14,6 +14,8 @@ import {
   CardTitle,
   CardContent,
   Button,
+  useToast,
+  ToastContainer,
 } from '@mcpmux/ui';
 import {
   useAppStore,
@@ -37,6 +39,7 @@ export function SpacesPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isActionLoading, setIsActionLoading] = useState<string | null>(null); // ID of space being acted on
+  const { toasts, success, error: showError, dismiss } = useToast();
 
   // Create Modal State
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -55,8 +58,11 @@ export function SpacesPage() {
       setNewSpaceName('');
       setNewSpaceIcon('🌐');
       setShowCreateModal(false);
+      success('Space created', `"${space.name}" has been created`);
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      const msg = e instanceof Error ? e.message : String(e);
+      setError(msg);
+      showError('Failed to create space', msg);
     } finally {
       setIsCreating(false);
     }
@@ -68,10 +74,14 @@ export function SpacesPage() {
     setIsActionLoading(id);
     setError(null);
     try {
+      const deletedSpace = spaces.find(s => s.id === id);
       await deleteSpace(id);
       removeSpace(id);
+      success('Space deleted', `"${deletedSpace?.name || 'Space'}" has been deleted`);
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      const msg = e instanceof Error ? e.message : String(e);
+      setError(msg);
+      showError('Failed to delete space', msg);
     } finally {
       setIsActionLoading(null);
     }
@@ -83,8 +93,12 @@ export function SpacesPage() {
     try {
       await setActiveSpaceAPI(id);
       setActiveSpaceInStore(id);
+      const activatedSpace = spaces.find(s => s.id === id);
+      success('Active space changed', `"${activatedSpace?.name || 'Space'}" is now active`);
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      const msg = e instanceof Error ? e.message : String(e);
+      setError(msg);
+      showError('Failed to set active space', msg);
     } finally {
       setIsActionLoading(null);
     }
@@ -101,6 +115,8 @@ export function SpacesPage() {
   });
 
   return (
+    <>
+    <ToastContainer toasts={toasts} onClose={dismiss} />
     <div className="h-full flex flex-col relative" data-testid="spaces-page">
       {/* Header */}
       <div className="flex-shrink-0 p-8 border-b border-[rgb(var(--border-subtle))]">
@@ -323,6 +339,7 @@ export function SpacesPage() {
         </div>
       )}
     </div>
+    </>
   );
 }
 

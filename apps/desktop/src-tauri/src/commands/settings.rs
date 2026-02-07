@@ -22,8 +22,8 @@ pub struct StartupSettings {
 impl Default for StartupSettings {
     fn default() -> Self {
         Self {
-            auto_launch: false,
-            start_minimized: false,
+            auto_launch: true,
+            start_minimized: true,
             close_to_tray: true, // Default to close-to-tray behavior
         }
     }
@@ -44,20 +44,22 @@ pub async fn get_startup_settings(
         .is_enabled()
         .map_err(|e| format!("Failed to check auto-launch status: {}", e))?;
 
-    // Get other settings from database
+    // Get other settings from database; use defaults when key is missing or DB read fails (e.g. no settings yet)
     let start_minimized = settings_repo
         .get("startup.start_minimized")
         .await
-        .map_err(|e| format!("Failed to get start_minimized setting: {}", e))?
+        .ok()
+        .flatten()
         .map(|v| v == "true")
-        .unwrap_or(false);
+        .unwrap_or(true);
 
     let close_to_tray = settings_repo
         .get("ui.close_to_tray")
         .await
-        .map_err(|e| format!("Failed to get close_to_tray setting: {}", e))?
+        .ok()
+        .flatten()
         .map(|v| v == "true")
-        .unwrap_or(true); // Default to true
+        .unwrap_or(true);
 
     Ok(StartupSettings {
         auto_launch,
@@ -96,6 +98,12 @@ pub async fn update_startup_settings(
         info!("[Settings] Auto-launch unchanged, skipping OS update");
     }
 
+    // Mark autostart as explicitly configured so first-launch logic won't re-enable it
+    settings_repo
+        .set("startup.autostart_configured", "true")
+        .await
+        .map_err(|e| format!("Failed to save autostart_configured flag: {}", e))?;
+
     // Update other settings in database
     settings_repo
         .set(
@@ -127,8 +135,8 @@ mod tests {
     #[test]
     fn test_startup_settings_default() {
         let settings = StartupSettings::default();
-        assert_eq!(settings.auto_launch, false);
-        assert_eq!(settings.start_minimized, false);
+        assert_eq!(settings.auto_launch, true);
+        assert_eq!(settings.start_minimized, true);
         assert_eq!(settings.close_to_tray, true);
     }
 

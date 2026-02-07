@@ -230,7 +230,7 @@ function DashboardView() {
         import('@/lib/api/featureSets').then((m) =>
           viewSpace?.id ? m.listFeatureSetsBySpace(viewSpace.id) : m.listFeatureSets()
         ),
-        import('@/lib/api/gateway').then((m) => m.getGatewayStatus()),
+        import('@/lib/api/gateway').then((m) => m.getGatewayStatus(viewSpace?.id)),
         import('@/lib/api/registry').then((m) => m.listInstalledServers(viewSpace?.id)),
       ]);
       console.log('[Dashboard] Gateway status received:', gateway);

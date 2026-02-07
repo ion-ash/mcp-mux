@@ -24,8 +24,11 @@ export const useAppStore = create<AppStore>()(
       setSpaces: (spaces) =>
         set((state) => {
           state.spaces = spaces;
-          // Auto-select active space if none selected
-          if (!state.activeSpaceId && spaces.length > 0) {
+          // Validate persisted activeSpaceId still exists, reset to default if not
+          const activeExists = state.activeSpaceId
+            ? spaces.some((s) => s.id === state.activeSpaceId)
+            : false;
+          if (!activeExists && spaces.length > 0) {
             const defaultSpace = spaces.find((s) => s.is_default);
             state.activeSpaceId = defaultSpace?.id ?? spaces[0].id;
           }

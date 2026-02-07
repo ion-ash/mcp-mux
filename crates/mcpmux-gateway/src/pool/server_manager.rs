@@ -280,6 +280,20 @@ impl ServerManager {
         count
     }
 
+    /// Count connected servers for a specific space
+    pub async fn connected_count_for_space(&self, space_id: &Uuid) -> usize {
+        let mut count = 0;
+        for entry in self.states.iter() {
+            if &entry.key().space_id == space_id {
+                let state = entry.value().read().await;
+                if state.status == ConnectionStatus::Connected {
+                    count += 1;
+                }
+            }
+        }
+        count
+    }
+
     /// Emit a domain event (unified event system)
     fn emit(&self, event: DomainEvent) {
         // Trace Refreshing events to find the source
