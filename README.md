@@ -3,132 +3,51 @@
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
 [![GitHub release](https://img.shields.io/github/v/release/MCP-Mux/mcp-mux)](https://github.com/MCP-Mux/mcp-mux/releases)
 
-**One gateway. Every MCP server. Zero cloud traffic.**
+### Configure your MCP servers once. Connect every AI client.
 
-McpMux is a cross-platform desktop application that aggregates all your Model Context Protocol (MCP) servers behind a single local endpoint. It manages credentials, isolates projects into Spaces, and keeps every tool call on your machine.
+McpMux is a desktop app that gives you **one place** to manage all your MCP servers — so you never have to copy-paste server configs across Cursor, Claude Desktop, VS Code, or any other AI client again.
 
 ---
 
-## The Problem
+## Why McpMux?
 
-Working with MCP servers today means juggling multiple connections, credentials, and configurations across different AI clients. Each server may require its own authentication, and switching between projects means reconfiguring everything. Credentials end up scattered, there is no unified view of available tools, and sensitive data often passes through third-party services unnecessarily.
+### The problem: MCP config is per-client
 
-## The Solution
-
-McpMux runs a local gateway on `localhost:9315` that acts as a single entry point for all your MCP servers. AI clients connect to McpMux once, and it handles the rest: routing tool calls to the right backend, refreshing OAuth tokens automatically, and keeping credentials locked in your OS keychain.
+Every AI client that supports MCP has its own configuration file. Want to use a GitHub server, a database server, and a Slack server? You configure all three **separately** in every single client.
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│                     AI Clients                          │
-│           (Cursor, Claude Desktop, VS Code, etc.)       │
-└──────────────────────┬──────────────────────────────────┘
-                       │ Single connection
-                       ▼
-┌─────────────────────────────────────────────────────────┐
-│                  McpMux Gateway                         │
-│                 localhost:9315                           │
-│                                                         │
-│  ┌──────────┐  ┌──────────┐  ┌───────────────┐         │
-│  │ Space A  │  │ Space B  │  │ Feature Sets  │         │
-│  │ (Work)   │  │ (Personal)│  │ (Permissions) │         │
-│  └──────────┘  └──────────┘  └───────────────┘         │
-└──────────┬──────────┬──────────┬────────────────────────┘
-           │          │          │
-     ┌─────┘    ┌─────┘    ┌────┘
-     ▼          ▼          ▼
-┌─────────┐┌─────────┐┌─────────┐
-│  stdio  ││  HTTP   ││   SSE   │
-│ servers ││ servers ││ servers │
-└─────────┘└─────────┘└─────────┘
+Cursor          → config.json    → github, slack, db servers + credentials
+Claude Desktop  → config.json    → github, slack, db servers + credentials  (again)
+VS Code         → settings.json  → github, slack, db servers + credentials  (again)
+Windsurf        → config.json    → github, slack, db servers + credentials  (again)
 ```
 
----
+Add a new server? Update **every client**. Rotate an API key? Update **every client**. Start a new project with different servers? Reconfigure **everything**.
 
-## Features
+### The other problem: credentials in plain text
 
-### Local-First Gateway
-All MCP traffic stays on your machine. McpMux runs entirely on `localhost` and never routes tool calls through external services. Cloud sync is optional and limited to configuration data only (server definitions, space settings) — never command payloads or responses.
+MCP configs store API keys and tokens in **plain JSON files on disk**. No encryption, no access control — just raw secrets sitting in your home directory.
 
-### Spaces: Project Isolation
-Organize servers into isolated workspaces called **Spaces**. Each Space has its own set of server configurations, credentials, and permissions. Switch between "Work", "Personal", or "Client Project" contexts without reconfiguring anything. Credentials are never shared across Spaces.
+### The fix: configure once, connect everywhere
 
-### Secure Credential Management
-Credentials are stored using your operating system's native keychain:
-- **macOS**: Keychain
-- **Windows**: Credential Manager
-- **Linux**: Secret Service (GNOME Keyring, KWallet)
+McpMux runs a local gateway on your machine. You configure your servers and credentials **once** inside McpMux, then point all your AI clients to a single local URL. That's it.
 
-Sensitive fields in the local database are encrypted with **AES-256-GCM** authenticated encryption. Encryption keys live in the OS keychain, not on disk. Sensitive data is zeroized from memory after use to prevent leaks.
+```
+Cursor          ─┐
+Claude Desktop  ─┤──→  McpMux (localhost:9315)  ──→  github, slack, db servers
+VS Code         ─┤      manages all credentials
+Windsurf        ─┘      one config, one place
+```
 
-### OAuth 2.1 with PKCE
-McpMux implements the full OAuth 2.1 authorization flow with Proof Key for Code Exchange (PKCE, RFC 7636) for connecting to remote MCP servers. It handles:
-- Automatic server discovery via RFC 8414 (`.well-known/oauth-authorization-server`)
-- Dynamic Client Registration (RFC 7591)
-- Automatic token refresh — no manual re-authentication
-
-### Multi-Transport Support
-Connect to MCP servers over any supported transport:
-- **stdio** — local processes (Node.js, Python, Rust, Go, etc.)
-- **Streamable HTTP** — remote servers over HTTP/HTTPS
-- **SSE** — Server-Sent Events for streaming
-
-### Server Registry & Discovery
-Browse and install servers from the built-in MCP registry. McpMux automatically discovers available tools, prompts, and resources from each connected server and caches them for offline access.
-
-### Feature Sets & Permissions
-Create fine-grained permission bundles called **Feature Sets** to control which tools, prompts, and resources each client can access. Compose sets from other sets, include or exclude specific features, and assign them per client.
-
-### Client Access Keys
-Generate access keys for each AI client. Clients authenticate to the gateway using `MCP-Key` or `Bearer` tokens. Each client can be assigned different Feature Sets, giving you granular control over what each client can do.
-
-### Server Logging & Monitoring
-Each server gets its own rotating log file with entries categorized by source (Connection, OAuth, Transport, MCP, Feature). View logs directly in the app's UI. Sensitive tokens are never written to logs.
-
-### System Tray & Auto-Start
-McpMux runs in the system tray and can be configured to start automatically with your OS. The gateway keeps running in the background so your AI clients always have access to their tools.
-
-### Auto-Updates
-Built-in update mechanism checks for new releases automatically. Updates are signed and verified before installation.
-
-### Deep Linking
-The `mcpmux://` URL scheme allows external applications to trigger actions in McpMux directly, such as initiating OAuth flows or installing servers.
+Add a server in McpMux → every client has it instantly. No files to edit. No credentials to copy.
 
 ---
 
-## Security
+## How It Works
 
-McpMux is designed with a defense-in-depth approach to credential and data security.
+**1. Install servers** — Browse the built-in registry or add servers manually.
 
-| Layer | Mechanism | Details |
-|-------|-----------|---------|
-| **Credential Storage** | OS Keychain | Master encryption key and JWT signing secret stored in platform-native secure storage |
-| **Database Encryption** | AES-256-GCM | Field-level authenticated encryption with unique nonces per operation |
-| **Memory Safety** | Zeroize | Sensitive data cleared from memory after use |
-| **Authentication** | OAuth 2.1 + PKCE | S256 code challenge method; automatic token refresh |
-| **Client Auth** | Access Keys | Per-client `mcp_<random>` tokens with configurable permissions |
-| **Network** | Local-only by default | Gateway binds to `127.0.0.1`; no external exposure |
-| **TLS** | rustls | HTTPS support for remote server connections |
-| **Logging** | Sanitized | Tokens and secrets are never written to log files |
-| **Isolation** | Spaces | Credentials and configurations never leak between Spaces |
-| **Sessions** | JWT (HS256) | Signed with 32-byte secret stored in OS keychain |
-
----
-
-## Getting Started
-
-### Download
-
-Download the latest release for your platform from the [Releases page](https://github.com/MCP-Mux/mcp-mux/releases):
-
-| Platform | Format |
-|----------|--------|
-| **Windows** | MSI installer |
-| **macOS** | DMG |
-| **Linux** | DEB, RPM, AppImage |
-
-### Configure Your AI Client
-
-Once McpMux is running, point your AI client to the local gateway:
+**2. Copy one config** — McpMux gives you a single JSON snippet to paste into any AI client:
 
 ```json
 {
@@ -140,6 +59,85 @@ Once McpMux is running, point your AI client to the local gateway:
 }
 ```
 
+**3. Done** — Every tool, prompt, and resource from all your servers is now available in every connected client.
+
+When an AI client calls a tool, McpMux routes the request to the right server automatically. OAuth tokens refresh in the background. Credentials stay encrypted in your OS keychain. You don't think about it.
+
+---
+
+## Features
+
+### One Dashboard for Everything
+See all your servers, their connection status, available tools, and connected clients in one place. Install new servers from the registry with a click. View logs when something goes wrong.
+
+### Spaces — Switch Contexts Instantly
+Working on multiple projects that need different servers? Create **Spaces** like "Work", "Personal", or "Client Project". Each Space has its own servers, credentials, and permissions. Switch between them in the sidebar — your AI clients follow automatically.
+
+### Credentials That Aren't in Plain Text
+McpMux stores credentials in your **OS keychain** (macOS Keychain, Windows Credential Manager, Linux Secret Service). Database fields are encrypted with AES-256-GCM. No more API keys sitting in plain JSON files.
+
+### OAuth That Just Works
+Remote MCP servers that require OAuth? McpMux handles the entire flow — browser-based login, token storage, and **automatic refresh** when tokens expire. You authenticate once and forget about it.
+
+### Server Registry
+Browse, search, and install MCP servers from the built-in registry. Filter by category, see what tools each server provides, and install with one click. Servers you've used before are cached for offline access.
+
+### Control What Each Client Can Access
+Not every AI client should have access to every tool. Create **Feature Sets** — permission bundles that control which tools, prompts, and resources a client can see. Give Cursor full access but limit VS Code to read-only tools. It's up to you.
+
+### Runs in the Background
+McpMux sits in your system tray and starts automatically with your OS. The gateway is always running, so your AI clients always have their tools available.
+
+---
+
+## Security
+
+MCP's default approach is plain-text JSON config files with raw credentials. McpMux replaces that with proper security:
+
+- **OS Keychain** — Encryption keys and secrets stored in your platform's native keychain, not on disk
+- **AES-256-GCM Encryption** — Sensitive database fields are encrypted with authenticated encryption
+- **Memory Zeroization** — Secrets are wiped from memory after use
+- **OAuth 2.1 + PKCE** — Industry-standard auth flow for remote servers with automatic token refresh
+- **Local-Only Gateway** — Binds to `127.0.0.1` only — nothing is exposed to the network
+- **Per-Client Permissions** — Access keys and Feature Sets control what each client can do
+- **Sanitized Logs** — Tokens and secrets never appear in log files
+
+All MCP traffic stays on your machine. McpMux never routes tool calls through external services. Cloud sync (optional) only covers configuration metadata — never credentials or MCP payloads.
+
+---
+
+## Getting Started
+
+### 1. Download McpMux
+
+Grab the latest release for your platform from the [Releases page](https://github.com/MCP-Mux/mcp-mux/releases):
+
+| Platform | Format |
+|----------|--------|
+| Windows | MSI installer |
+| macOS | DMG |
+| Linux | DEB, RPM, AppImage |
+
+### 2. Add Your Servers
+
+Open McpMux and head to the **Discover** tab to browse the registry, or add servers manually via **My Servers → Add Server Manually**.
+
+### 3. Connect Your AI Clients
+
+Copy the gateway config from the Dashboard and paste it into your AI client's MCP settings:
+
+```json
+{
+  "mcpServers": {
+    "mcpmux": {
+      "url": "http://localhost:9315/mcp"
+    }
+  }
+}
+```
+
+That's the last config file you'll need to touch.
+
 ---
 
 ## Development
@@ -150,120 +148,46 @@ Once McpMux is running, point your AI client to the local gateway:
 - [Node.js](https://nodejs.org/) 18+
 - [pnpm](https://pnpm.io/) 9+
 
-**Linux additional dependencies** (for credential storage via Secret Service):
+Linux also needs: `gnome-keyring libsecret-1-dev librsvg2-dev pkg-config`
+
+### Setup
 
 ```bash
-# Debian/Ubuntu
-sudo apt install gnome-keyring libsecret-1-dev librsvg2-dev pkg-config
-
-# Fedora/RHEL
-sudo dnf install gnome-keyring libsecret-devel librsvg2-devel pkg-config
-```
-
-### Setup & Run
-
-```bash
-# First-time setup (installs dependencies, Playwright browsers, etc.)
-pnpm setup
-
-# Start development (launches both Tauri backend and React frontend)
-pnpm dev
-
-# Build for production
-pnpm build
+pnpm setup    # First-time: installs all dependencies
+pnpm dev      # Start development
+pnpm build    # Build for production
 ```
 
 ### Testing
 
 ```bash
-# Run all tests
-pnpm test
-
-# Rust unit tests
-pnpm test:rust:unit
-
-# Rust integration tests
-pnpm test:rust:int
-
-# TypeScript tests
-pnpm test:ts
-
-# E2E tests (web, works on all platforms)
-pnpm test:e2e:web
-
-# Full Tauri E2E tests (Windows/Linux)
-pnpm test:e2e
+pnpm test              # All tests
+pnpm test:rust:unit    # Rust unit tests
+pnpm test:ts           # TypeScript tests
+pnpm test:e2e:web      # E2E tests (all platforms)
 ```
 
-### Code Quality
-
-```bash
-# Lint, typecheck, and format check
-pnpm validate
-
-# Auto-format
-pnpm format
-```
-
----
-
-## Project Structure
+### Project Structure
 
 ```
 mcp-mux/
-├── apps/
-│   └── desktop/               # Tauri desktop application
-│       ├── src/               # React 19 + TypeScript frontend
-│       └── src-tauri/         # Rust backend (Tauri commands)
+├── apps/desktop/          # Tauri desktop app (React + Rust)
 ├── crates/
-│   ├── mcpmux-core/           # Domain entities, services, events
-│   ├── mcpmux-gateway/        # HTTP gateway, connection pool, OAuth, routing
-│   ├── mcpmux-storage/        # SQLite, AES-256-GCM encryption, OS keychain
-│   └── mcpmux-mcp/            # MCP protocol implementation
-├── packages/
-│   └── ui/                    # Shared React UI components
-└── tests/
-    ├── rust/                  # Rust integration tests
-    ├── ts/                    # TypeScript unit tests
-    └── e2e/                   # E2E tests (Playwright + WebdriverIO)
+│   ├── mcpmux-core/       # Domain logic
+│   ├── mcpmux-gateway/    # Local HTTP gateway, OAuth, routing
+│   ├── mcpmux-storage/    # SQLite + encryption + OS keychain
+│   └── mcpmux-mcp/        # MCP protocol
+├── packages/ui/           # Shared UI components
+└── tests/                 # Unit, integration, and E2E tests
 ```
 
-### Tech Stack
-
-| Component | Technology |
-|-----------|-----------|
-| **Desktop shell** | Tauri 2.x |
-| **Backend** | Rust (Tokio, Axum, SQLite) |
-| **Frontend** | React 19, TypeScript 5.7, Tailwind CSS, Zustand |
-| **MCP SDK** | rmcp 0.14 |
-| **Encryption** | ring (AES-256-GCM) |
-| **Keychain** | keyring (cross-platform) |
-| **Build** | Cargo + Vite + pnpm workspaces |
-| **Testing** | cargo test, Vitest, Playwright, WebdriverIO |
-
----
-
-## Configuration
-
-### Gateway
-
-The gateway listens on `127.0.0.1:9315` by default. The port and host can be configured in the application settings.
-
-### Data Storage
-
-| Platform | Location |
-|----------|----------|
-| **Linux** | `~/.local/share/com.mcpmux.desktop/` |
-| **macOS** | `~/Library/Application Support/com.mcpmux.desktop/` |
-| **Windows** | `%LOCALAPPDATA%\com.mcpmux.desktop\` |
-
-The database (`mcpmux.db`) and per-server log files are stored in this directory.
+Built with **Tauri 2** (Rust + React 19), using **Axum** for the gateway, **ring** for encryption, and **rmcp** for the MCP protocol.
 
 ---
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines, including the Developer Certificate of Origin (DCO) requirement.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ## License
 
