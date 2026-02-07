@@ -126,8 +126,8 @@ test.describe('Server Toast Notifications', () => {
       if (await clearBtn.isVisible()) {
         await clearBtn.click();
         
-        await expect(page.getByTestId('toast-success')).toBeVisible({ timeout: 5000 });
-        const toastText = await page.getByTestId('toast-container').locator('[role="alert"]').first().textContent();
+        await expect(page.getByTestId('toast-success').first()).toBeVisible({ timeout: 5000 });
+        const toastText = await page.getByRole('main').getByTestId('toast-container').locator('[role="alert"]').first().textContent();
         expect(toastText).toContain('Logs cleared');
       }
     }
@@ -149,8 +149,8 @@ test.describe('Server Toast Notifications', () => {
       if (await copyBtn.isVisible()) {
         await copyBtn.click();
         
-        await expect(page.getByTestId('toast-success')).toBeVisible({ timeout: 5000 });
-        const toastText = await page.getByTestId('toast-container').locator('[role="alert"]').first().textContent();
+        await expect(page.getByTestId('toast-success').first()).toBeVisible({ timeout: 5000 });
+        const toastText = await page.getByRole('main').getByTestId('toast-container').locator('[role="alert"]').first().textContent();
         expect(toastText).toContain('Path copied');
       }
     }

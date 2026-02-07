@@ -303,8 +303,8 @@ test.describe('Settings', () => {
 
       await page.locator('nav button:has-text("Settings")').click();
 
-      // Toast container should exist (even if empty)
-      const toastContainer = page.getByTestId('toast-container');
+      // Toast container should exist in main content (even if empty)
+      const toastContainer = page.getByRole('main').getByTestId('toast-container');
       await expect(toastContainer).toBeAttached();
     });
 

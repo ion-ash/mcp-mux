@@ -27,7 +27,7 @@ export class SettingsPage extends BasePage {
     this.autoLaunchSwitch = page.getByTestId('auto-launch-switch');
     this.startMinimizedSwitch = page.getByTestId('start-minimized-switch');
     this.closeToTraySwitch = page.getByTestId('close-to-tray-switch');
-    this.toastContainer = page.getByTestId('toast-container');
+    this.toastContainer = page.getByRole('main').getByTestId('toast-container');
   }
 
   async selectTheme(theme: 'light' | 'dark' | 'system') {
@@ -60,7 +60,7 @@ export class SettingsPage extends BasePage {
   }
 
   async getToastText() {
-    const toast = this.page.getByTestId('toast-container').locator('[role="alert"]').first();
+    const toast = this.page.getByRole('main').getByTestId('toast-container').locator('[role="alert"]').first();
     return toast.textContent();
   }
 

@@ -80,7 +80,7 @@ test.describe('Feature Set Toast Container', () => {
     await page.locator('nav button:has-text("FeatureSets")').click({ force: true });
     await expect(page.getByRole('heading', { name: 'Feature Sets' }).first()).toBeVisible();
     
-    await expect(page.getByTestId('toast-container')).toBeAttached();
+    await expect(page.getByRole('main').getByTestId('toast-container')).toBeAttached();
   });
 });
 
@@ -176,8 +176,8 @@ test.describe('Feature Set Panel Save Toast', () => {
       await page.getByRole('button', { name: /Save Changes/i }).click();
       
       // Wait for success toast
-      await expect(page.getByTestId('toast-success')).toBeVisible({ timeout: 5000 });
-      const toastText = await page.getByTestId('toast-container').locator('[role="alert"]').first().textContent();
+      await expect(page.getByTestId('toast-success').first()).toBeVisible({ timeout: 5000 });
+      const toastText = await page.getByRole('main').getByTestId('toast-container').locator('[role="alert"]').first().textContent();
       expect(toastText).toContain('Changes saved');
     }
   });
@@ -201,8 +201,8 @@ test.describe('Feature Set Panel Save Toast', () => {
       if (await saveButton.isVisible()) {
         await saveButton.click();
         
-        await expect(page.getByTestId('toast-error')).toBeVisible({ timeout: 5000 });
-        const toastText = await page.getByTestId('toast-container').locator('[role="alert"]').first().textContent();
+        await expect(page.getByTestId('toast-error').first()).toBeVisible({ timeout: 5000 });
+        const toastText = await page.getByRole('main').getByTestId('toast-container').locator('[role="alert"]').first().textContent();
         expect(toastText).toContain('Failed to save');
       }
     }
