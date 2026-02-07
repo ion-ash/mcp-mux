@@ -18,8 +18,8 @@ export type ExportFormat = 'cursor' | 'vscode' | 'claude';
 /**
  * Get gateway status.
  */
-export async function getGatewayStatus(): Promise<GatewayStatus> {
-  return invoke('get_gateway_status');
+export async function getGatewayStatus(spaceId?: string): Promise<GatewayStatus> {
+  return invoke('get_gateway_status', { spaceId });
 }
 
 /**

@@ -273,7 +273,7 @@ export function ServersPage() {
       // Use allSettled so we can show installed servers even if registry is offline
       const [installedResult, gatewayResult, definitionsResult] = await Promise.allSettled([
         import('@/lib/api/registry').then((m) => m.listInstalledServers(viewSpace?.id)),
-        import('@/lib/api/gateway').then((m) => m.getGatewayStatus()),
+        import('@/lib/api/gateway').then((m) => m.getGatewayStatus(viewSpace?.id)),
         import('@/lib/api/registry').then((m) => m.discoverServers()),
       ]);
       

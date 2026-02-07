@@ -504,9 +504,10 @@ fn create_gateway_dependencies(
     builder.build().map_err(|e: String| e)
 }
 
-/// Get gateway status
+/// Get gateway status, optionally scoped to a specific space
 #[tauri::command]
 pub async fn get_gateway_status(
+    space_id: Option<String>,
     gateway_state: State<'_, Arc<RwLock<GatewayAppState>>>,
     server_manager_state: State<'_, Arc<RwLock<ServerManagerState>>>,
 ) -> Result<GatewayStatus, String> {
@@ -519,19 +520,24 @@ pub async fn get_gateway_status(
         0
     };
 
-    // Get connected count from ServerManager
+    // Get connected count from ServerManager, scoped to space if provided
     let connected_backends = {
         let sm_state = server_manager_state.read().await;
         if let Some(ref manager) = sm_state.manager {
-            manager.connected_count().await
+            if let Some(ref sid) = space_id {
+                let uuid = Uuid::parse_str(sid).map_err(|e| e.to_string())?;
+                manager.connected_count_for_space(&uuid).await
+            } else {
+                manager.connected_count().await
+            }
         } else {
             0
         }
     };
 
     info!(
-        "[Gateway] get_gateway_status: running={}, url={:?}, sessions={}, backends={}",
-        state.running, state.url, active_sessions, connected_backends
+        "[Gateway] get_gateway_status: running={}, url={:?}, sessions={}, backends={}, space={:?}",
+        state.running, state.url, active_sessions, connected_backends, space_id
     );
 
     Ok(GatewayStatus {
