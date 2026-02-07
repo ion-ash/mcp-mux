@@ -1,0 +1,87 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bgGrad3" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0b1029;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#151a38;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="boltGrad" x1="30%" y1="0%" x2="70%" y2="100%">
+      <stop offset="0%" style="stop-color:#FFE566;stop-opacity:1" />
+      <stop offset="40%" style="stop-color:#FFD700;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#FF9500;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="cyanGrad3" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#00E5FF;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#00A0CC;stop-opacity:1" />
+    </linearGradient>
+    <filter id="boltGlow">
+      <feGaussianBlur stdDeviation="8" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="textGlow3">
+      <feGaussianBlur stdDeviation="4" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="subtleGlow3">
+      <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="512" height="512" rx="80" fill="url(#bgGrad3)"/>
+
+  <!-- Hexagonal frame -->
+  <polygon points="256,68 418,162 418,350 256,444 94,350 94,162"
+           fill="none" stroke="#00D9FF" stroke-width="2" opacity="0.2"/>
+  <polygon points="256,88 400,172 400,340 256,424 112,340 112,172"
+           fill="none" stroke="#00D9FF" stroke-width="1" opacity="0.1"/>
+
+  <!-- Lightning bolt - the main icon, stylized and bold -->
+  <g filter="url(#boltGlow)">
+    <path d="M290 80 L188 260 L248 260 L222 432 L340 230 L272 230 Z"
+          fill="url(#boltGrad)" opacity="0.95"/>
+  </g>
+
+  <!-- Inner bolt highlight -->
+  <path d="M282 110 L208 248 L252 248 L232 400 L322 242 L274 242 Z"
+        fill="white" opacity="0.15"/>
+
+  <!-- Multiplexer dots on left side of bolt -->
+  <g filter="url(#subtleGlow3)">
+    <circle cx="120" cy="180" r="6" fill="#00D9FF" opacity="0.7"/>
+    <circle cx="105" cy="256" r="6" fill="#00D9FF" opacity="0.7"/>
+    <circle cx="120" cy="332" r="6" fill="#00D9FF" opacity="0.7"/>
+  </g>
+
+  <!-- Multiplexer dots on right side of bolt -->
+  <g filter="url(#subtleGlow3)">
+    <circle cx="392" cy="180" r="6" fill="#00D9FF" opacity="0.7"/>
+    <circle cx="407" cy="256" r="6" fill="#00D9FF" opacity="0.7"/>
+    <circle cx="392" cy="332" r="6" fill="#00D9FF" opacity="0.7"/>
+  </g>
+
+  <!-- Connection lines left to bolt -->
+  <line x1="126" y1="180" x2="210" y2="240" stroke="#00D9FF" stroke-width="1.2" opacity="0.3"/>
+  <line x1="111" y1="256" x2="200" y2="256" stroke="#00D9FF" stroke-width="1.2" opacity="0.3"/>
+  <line x1="126" y1="332" x2="230" y2="280" stroke="#00D9FF" stroke-width="1.2" opacity="0.3"/>
+
+  <!-- Connection lines right from bolt -->
+  <line x1="386" y1="180" x2="310" y2="240" stroke="#00D9FF" stroke-width="1.2" opacity="0.3"/>
+  <line x1="401" y1="256" x2="320" y2="256" stroke="#00D9FF" stroke-width="1.2" opacity="0.3"/>
+  <line x1="386" y1="332" x2="295" y2="280" stroke="#00D9FF" stroke-width="1.2" opacity="0.3"/>
+
+  <!-- Small energy particles -->
+  <circle cx="240" cy="160" r="2" fill="#FFE566" opacity="0.6"/>
+  <circle cx="300" cy="340" r="2" fill="#FFE566" opacity="0.6"/>
+  <circle cx="220" cy="370" r="2" fill="#FFE566" opacity="0.5"/>
+  <circle cx="310" cy="150" r="2" fill="#FFE566" opacity="0.5"/>
+</svg>

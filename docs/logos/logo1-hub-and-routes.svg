@@ -1,0 +1,95 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bgGrad1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0a0e27;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#141832;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="coreGrad1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#00D9FF;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#0099CC;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="accentGrad1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#FFD700;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#FF9500;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="lineGrad1" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#00D9FF;stop-opacity:0.3" />
+      <stop offset="50%" style="stop-color:#00D9FF;stop-opacity:0.8" />
+      <stop offset="100%" style="stop-color:#00D9FF;stop-opacity:0.3" />
+    </linearGradient>
+    <filter id="glow1">
+      <feGaussianBlur stdDeviation="4" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="coreGlow1">
+      <feGaussianBlur stdDeviation="8" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="512" height="512" rx="80" fill="url(#bgGrad1)"/>
+
+  <!-- Connection lines from center to outer nodes -->
+  <!-- Top -->
+  <line x1="256" y1="230" x2="256" y2="105" stroke="url(#lineGrad1)" stroke-width="3" opacity="0.6"/>
+  <!-- Top-Right -->
+  <line x1="274" y1="245" x2="380" y2="140" stroke="url(#lineGrad1)" stroke-width="3" opacity="0.6"/>
+  <!-- Right -->
+  <line x1="282" y1="262" x2="407" y2="262" stroke="url(#lineGrad1)" stroke-width="3" opacity="0.6"/>
+  <!-- Bottom-Right -->
+  <line x1="274" y1="280" x2="380" y2="385" stroke="url(#lineGrad1)" stroke-width="3" opacity="0.6"/>
+  <!-- Bottom -->
+  <line x1="256" y1="288" x2="256" y2="410" stroke="url(#lineGrad1)" stroke-width="3" opacity="0.6"/>
+  <!-- Bottom-Left -->
+  <line x1="238" y1="280" x2="132" y2="385" stroke="url(#lineGrad1)" stroke-width="3" opacity="0.6"/>
+  <!-- Left -->
+  <line x1="230" y1="262" x2="105" y2="262" stroke="url(#lineGrad1)" stroke-width="3" opacity="0.6"/>
+  <!-- Top-Left -->
+  <line x1="238" y1="245" x2="132" y2="140" stroke="url(#lineGrad1)" stroke-width="3" opacity="0.6"/>
+
+  <!-- Outer nodes (the "many" servers) -->
+  <!-- Top -->
+  <circle cx="256" cy="95" r="18" fill="none" stroke="#00D9FF" stroke-width="2.5" opacity="0.7"/>
+  <circle cx="256" cy="95" r="7" fill="#00D9FF" opacity="0.8"/>
+  <!-- Top-Right -->
+  <circle cx="388" cy="132" r="18" fill="none" stroke="#00D9FF" stroke-width="2.5" opacity="0.7"/>
+  <circle cx="388" cy="132" r="7" fill="#00D9FF" opacity="0.8"/>
+  <!-- Right -->
+  <circle cx="417" cy="262" r="18" fill="none" stroke="#00D9FF" stroke-width="2.5" opacity="0.7"/>
+  <circle cx="417" cy="262" r="7" fill="#00D9FF" opacity="0.8"/>
+  <!-- Bottom-Right -->
+  <circle cx="388" cy="392" r="18" fill="none" stroke="#00D9FF" stroke-width="2.5" opacity="0.7"/>
+  <circle cx="388" cy="392" r="7" fill="#00D9FF" opacity="0.8"/>
+  <!-- Bottom -->
+  <circle cx="256" cy="420" r="18" fill="none" stroke="#00D9FF" stroke-width="2.5" opacity="0.7"/>
+  <circle cx="256" cy="420" r="7" fill="#00D9FF" opacity="0.8"/>
+  <!-- Bottom-Left -->
+  <circle cx="124" cy="392" r="18" fill="none" stroke="#00D9FF" stroke-width="2.5" opacity="0.7"/>
+  <circle cx="124" cy="392" r="7" fill="#00D9FF" opacity="0.8"/>
+  <!-- Left -->
+  <circle cx="95" cy="262" r="18" fill="none" stroke="#00D9FF" stroke-width="2.5" opacity="0.7"/>
+  <circle cx="95" cy="262" r="7" fill="#00D9FF" opacity="0.8"/>
+  <!-- Top-Left -->
+  <circle cx="124" cy="132" r="18" fill="none" stroke="#00D9FF" stroke-width="2.5" opacity="0.7"/>
+  <circle cx="124" cy="132" r="7" fill="#00D9FF" opacity="0.8"/>
+
+  <!-- Central hub - outer ring -->
+  <circle cx="256" cy="260" r="52" fill="none" stroke="url(#accentGrad1)" stroke-width="3" filter="url(#glow1)" opacity="0.9"/>
+
+  <!-- Central hub - inner filled circle -->
+  <circle cx="256" cy="260" r="36" fill="url(#accentGrad1)" filter="url(#coreGlow1)" opacity="0.95"/>
+
+  <!-- "M" letter in center hub -->
+  <text x="256" y="273" font-family="'SF Pro Display', 'Inter', 'Helvetica Neue', Arial, sans-serif" font-size="36" font-weight="800" fill="#0a0e27" text-anchor="middle" letter-spacing="-1">M</text>
+
+  <!-- Pulse rings around center -->
+  <circle cx="256" cy="260" r="65" fill="none" stroke="#00D9FF" stroke-width="1" opacity="0.2"/>
+  <circle cx="256" cy="260" r="80" fill="none" stroke="#00D9FF" stroke-width="0.5" opacity="0.1"/>
+</svg>

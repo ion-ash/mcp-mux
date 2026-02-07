@@ -1,0 +1,89 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bgGrad2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#080c20;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#111630;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="shieldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#00E5FF;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#00B8D4;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#0091EA;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="goldGrad2" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#FFE066;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#FFB300;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="innerGrad" x1="50%" y1="0%" x2="50%" y2="100%">
+      <stop offset="0%" style="stop-color:#00D9FF;stop-opacity:0.15" />
+      <stop offset="100%" style="stop-color:#0091EA;stop-opacity:0.05" />
+    </linearGradient>
+    <filter id="shieldGlow">
+      <feGaussianBlur stdDeviation="6" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="goldGlow2">
+      <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <clipPath id="shieldClip">
+      <path d="M256 72 L420 148 L420 280 C420 370 340 430 256 452 C172 430 92 370 92 280 L92 148 Z"/>
+    </clipPath>
+  </defs>
+
+  <!-- Background -->
+  <rect width="512" height="512" rx="80" fill="url(#bgGrad2)"/>
+
+  <!-- Shield shape - outer stroke with glow -->
+  <path d="M256 82 L410 152 L410 278 C410 360 335 418 256 440 C177 418 102 360 102 278 L102 152 Z"
+        fill="url(#innerGrad)" stroke="url(#shieldGrad)" stroke-width="3.5" filter="url(#shieldGlow)" stroke-linejoin="round"/>
+
+  <!-- Inner shield highlight line -->
+  <path d="M256 110 L385 168 L385 275 C385 342 322 392 256 410 C190 392 127 342 127 275 L127 168 Z"
+        fill="none" stroke="#00D9FF" stroke-width="1" opacity="0.3" stroke-linejoin="round"/>
+
+  <!-- Gateway arrows - three incoming arrows converging to center -->
+  <!-- Left arrow -->
+  <g filter="url(#goldGlow2)">
+    <path d="M145 220 L210 258 L145 296" fill="none" stroke="url(#goldGrad2)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    <line x1="148" y1="258" x2="210" y2="258" stroke="url(#goldGrad2)" stroke-width="4" stroke-linecap="round"/>
+  </g>
+
+  <!-- Right arrow -->
+  <g filter="url(#goldGlow2)">
+    <path d="M367 220 L302 258 L367 296" fill="none" stroke="url(#goldGrad2)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    <line x1="364" y1="258" x2="302" y2="258" stroke="url(#goldGrad2)" stroke-width="4" stroke-linecap="round"/>
+  </g>
+
+  <!-- Center merge point -->
+  <circle cx="256" cy="258" r="14" fill="url(#goldGrad2)" filter="url(#goldGlow2)" opacity="0.95"/>
+  <circle cx="256" cy="258" r="22" fill="none" stroke="#FFD700" stroke-width="1.5" opacity="0.4"/>
+
+  <!-- Top incoming line -->
+  <line x1="256" y1="135" x2="256" y2="236" stroke="url(#goldGrad2)" stroke-width="3" stroke-linecap="round" opacity="0.7"/>
+  <circle cx="256" cy="135" r="5" fill="#FFD700" opacity="0.8"/>
+
+  <!-- Bottom outgoing line -->
+  <line x1="256" y1="280" x2="256" y2="390" stroke="#00D9FF" stroke-width="3" stroke-linecap="round" opacity="0.5"/>
+
+  <!-- Lock keyhole in center dot -->
+  <rect x="253" y="253" width="6" height="8" rx="1" fill="#080c20"/>
+  <circle cx="256" cy="253" r="3.5" fill="none" stroke="#080c20" stroke-width="1.5"/>
+
+  <!-- Decorative circuit lines -->
+  <line x1="130" y1="170" x2="170" y2="170" stroke="#00D9FF" stroke-width="1" opacity="0.2"/>
+  <line x1="170" y1="170" x2="170" y2="200" stroke="#00D9FF" stroke-width="1" opacity="0.2"/>
+  <circle cx="170" cy="200" r="2" fill="#00D9FF" opacity="0.3"/>
+
+  <line x1="382" y1="170" x2="342" y2="170" stroke="#00D9FF" stroke-width="1" opacity="0.2"/>
+  <line x1="342" y1="170" x2="342" y2="200" stroke="#00D9FF" stroke-width="1" opacity="0.2"/>
+  <circle cx="342" cy="200" r="2" fill="#00D9FF" opacity="0.3"/>
+
+  <line x1="180" y1="380" x2="180" y2="350" stroke="#00D9FF" stroke-width="1" opacity="0.15"/>
+  <line x1="332" y1="380" x2="332" y2="350" stroke="#00D9FF" stroke-width="1" opacity="0.15"/>
+</svg>

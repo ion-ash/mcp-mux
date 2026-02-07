@@ -1,0 +1,121 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bgGrad4" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#06091e;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#0f1430;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="arrowGradTop" x1="50%" y1="0%" x2="50%" y2="100%">
+      <stop offset="0%" style="stop-color:#00E5FF;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#0091EA;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="arrowGradLeft" x1="0%" y1="50%" x2="100%" y2="50%">
+      <stop offset="0%" style="stop-color:#00BCD4;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#006880;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="arrowGradRight" x1="100%" y1="50%" x2="0%" y2="50%">
+      <stop offset="0%" style="stop-color:#00BCD4;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#006880;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="centerGrad4" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#FFE066;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#FFD700;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#FFAB00;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="outGrad" x1="50%" y1="0%" x2="50%" y2="100%">
+      <stop offset="0%" style="stop-color:#FFD700;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#FF9500;stop-opacity:0.8" />
+    </linearGradient>
+    <filter id="arrowGlow">
+      <feGaussianBlur stdDeviation="5" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="centerGlow4">
+      <feGaussianBlur stdDeviation="10" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="512" height="512" rx="80" fill="url(#bgGrad4)"/>
+
+  <!-- Subtle grid pattern -->
+  <g opacity="0.04" stroke="#00D9FF" stroke-width="0.5">
+    <line x1="128" y1="0" x2="128" y2="512"/>
+    <line x1="256" y1="0" x2="256" y2="512"/>
+    <line x1="384" y1="0" x2="384" y2="512"/>
+    <line x1="0" y1="128" x2="512" y2="128"/>
+    <line x1="0" y1="256" x2="512" y2="256"/>
+    <line x1="0" y1="384" x2="512" y2="384"/>
+  </g>
+
+  <!-- Top-left incoming arrow -->
+  <g filter="url(#arrowGlow)">
+    <path d="M100 100 L230 230" stroke="url(#arrowGradTop)" stroke-width="5" stroke-linecap="round" fill="none"/>
+    <polygon points="230,230 210,208 232,210" fill="#00D9FF"/>
+    <circle cx="100" cy="100" r="10" fill="#00D9FF" opacity="0.6"/>
+    <circle cx="100" cy="100" r="16" fill="none" stroke="#00D9FF" stroke-width="1.5" opacity="0.3"/>
+  </g>
+
+  <!-- Top-right incoming arrow -->
+  <g filter="url(#arrowGlow)">
+    <path d="M412 100 L282 230" stroke="url(#arrowGradRight)" stroke-width="5" stroke-linecap="round" fill="none"/>
+    <polygon points="282,230 302,208 280,210" fill="#00BCD4"/>
+    <circle cx="412" cy="100" r="10" fill="#00BCD4" opacity="0.6"/>
+    <circle cx="412" cy="100" r="16" fill="none" stroke="#00BCD4" stroke-width="1.5" opacity="0.3"/>
+  </g>
+
+  <!-- Left incoming arrow -->
+  <g filter="url(#arrowGlow)">
+    <path d="M75 260 L225 260" stroke="url(#arrowGradLeft)" stroke-width="5" stroke-linecap="round" fill="none"/>
+    <polygon points="225,260 205,248 205,272" fill="#00BCD4"/>
+    <circle cx="75" cy="260" r="10" fill="#00BCD4" opacity="0.6"/>
+    <circle cx="75" cy="260" r="16" fill="none" stroke="#00BCD4" stroke-width="1.5" opacity="0.3"/>
+  </g>
+
+  <!-- Right incoming arrow -->
+  <g filter="url(#arrowGlow)">
+    <path d="M437 260 L287 260" stroke="url(#arrowGradRight)" stroke-width="5" stroke-linecap="round" fill="none"/>
+    <polygon points="287,260 307,248 307,272" fill="#00BCD4"/>
+    <circle cx="437" cy="260" r="10" fill="#00BCD4" opacity="0.6"/>
+    <circle cx="437" cy="260" r="16" fill="none" stroke="#00BCD4" stroke-width="1.5" opacity="0.3"/>
+  </g>
+
+  <!-- Bottom-left incoming arrow -->
+  <g filter="url(#arrowGlow)">
+    <path d="M100 420 L230 290" stroke="url(#arrowGradLeft)" stroke-width="5" stroke-linecap="round" fill="none"/>
+    <polygon points="230,290 210,312 232,310" fill="#00BCD4"/>
+    <circle cx="100" cy="420" r="10" fill="#00BCD4" opacity="0.6"/>
+    <circle cx="100" cy="420" r="16" fill="none" stroke="#00BCD4" stroke-width="1.5" opacity="0.3"/>
+  </g>
+
+  <!-- Bottom-right incoming arrow -->
+  <g filter="url(#arrowGlow)">
+    <path d="M412 420 L282 290" stroke="url(#arrowGradRight)" stroke-width="5" stroke-linecap="round" fill="none"/>
+    <polygon points="282,290 302,312 280,310" fill="#00BCD4"/>
+    <circle cx="412" cy="420" r="10" fill="#00BCD4" opacity="0.6"/>
+    <circle cx="412" cy="420" r="16" fill="none" stroke="#00BCD4" stroke-width="1.5" opacity="0.3"/>
+  </g>
+
+  <!-- Central convergence point -->
+  <g filter="url(#centerGlow4)">
+    <circle cx="256" cy="260" r="38" fill="url(#centerGrad4)" opacity="0.95"/>
+  </g>
+  <circle cx="256" cy="260" r="48" fill="none" stroke="#FFD700" stroke-width="2" opacity="0.3"/>
+  <circle cx="256" cy="260" r="58" fill="none" stroke="#FFD700" stroke-width="1" opacity="0.15"/>
+
+  <!-- "MUX" text inside center -->
+  <text x="256" y="268" font-family="'SF Pro Display', 'Inter', 'Helvetica Neue', Arial, sans-serif"
+        font-size="20" font-weight="900" fill="#06091e" text-anchor="middle" letter-spacing="2">MUX</text>
+
+  <!-- Outgoing data stream downward (single unified output) -->
+  <g opacity="0.8">
+    <line x1="256" y1="308" x2="256" y2="470" stroke="url(#outGrad)" stroke-width="4" stroke-linecap="round" stroke-dasharray="8,6"/>
+    <polygon points="256,475 244,455 268,455" fill="#FFD700" opacity="0.8"/>
+  </g>
+</svg>

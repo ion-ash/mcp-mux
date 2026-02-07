@@ -1,0 +1,120 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bgGrad5" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#070b22;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#121836;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="ring1Grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#00E5FF;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#006994;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="ring2Grad" x1="100%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#00BCD4;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#004D5E;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="ring3Grad" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#0097A7;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#00394D;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="coreGrad5" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#FFE566;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#FFD700;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#FF9F00;stop-opacity:1" />
+    </linearGradient>
+    <filter id="ringGlow5">
+      <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="coreGlow5">
+      <feGaussianBlur stdDeviation="12" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="nodeGlow5">
+      <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="512" height="512" rx="80" fill="url(#bgGrad5)"/>
+
+  <!-- Orbital ring 1 - tilted ellipse (horizontal-ish) -->
+  <g filter="url(#ringGlow5)">
+    <ellipse cx="256" cy="256" rx="170" ry="60"
+             fill="none" stroke="url(#ring1Grad)" stroke-width="2.5" opacity="0.7"
+             transform="rotate(-15, 256, 256)"/>
+  </g>
+
+  <!-- Orbital ring 2 - tilted ellipse (60 degrees) -->
+  <g filter="url(#ringGlow5)">
+    <ellipse cx="256" cy="256" rx="170" ry="60"
+             fill="none" stroke="url(#ring2Grad)" stroke-width="2.5" opacity="0.7"
+             transform="rotate(45, 256, 256)"/>
+  </g>
+
+  <!-- Orbital ring 3 - tilted ellipse (120 degrees) -->
+  <g filter="url(#ringGlow5)">
+    <ellipse cx="256" cy="256" rx="170" ry="60"
+             fill="none" stroke="url(#ring3Grad)" stroke-width="2.5" opacity="0.7"
+             transform="rotate(105, 256, 256)"/>
+  </g>
+
+  <!-- Orbital nodes (where data travels on rings) -->
+  <!-- Ring 1 nodes -->
+  <g filter="url(#nodeGlow5)">
+    <circle cx="110" cy="225" r="8" fill="#00E5FF" opacity="0.85"/>
+    <circle cx="402" cy="287" r="8" fill="#00E5FF" opacity="0.85"/>
+  </g>
+
+  <!-- Ring 2 nodes -->
+  <g filter="url(#nodeGlow5)">
+    <circle cx="148" cy="370" r="8" fill="#00BCD4" opacity="0.85"/>
+    <circle cx="364" cy="142" r="8" fill="#00BCD4" opacity="0.85"/>
+  </g>
+
+  <!-- Ring 3 nodes -->
+  <g filter="url(#nodeGlow5)">
+    <circle cx="190" cy="120" r="8" fill="#0097A7" opacity="0.85"/>
+    <circle cx="322" cy="392" r="8" fill="#0097A7" opacity="0.85"/>
+  </g>
+
+  <!-- Connection lines from nodes to center (data flowing in) -->
+  <line x1="110" y1="225" x2="230" y2="250" stroke="#00E5FF" stroke-width="1" opacity="0.25"/>
+  <line x1="402" y1="287" x2="282" y2="262" stroke="#00E5FF" stroke-width="1" opacity="0.25"/>
+  <line x1="148" y1="370" x2="240" y2="275" stroke="#00BCD4" stroke-width="1" opacity="0.25"/>
+  <line x1="364" y1="142" x2="272" y2="237" stroke="#00BCD4" stroke-width="1" opacity="0.25"/>
+  <line x1="190" y1="120" x2="245" y2="235" stroke="#0097A7" stroke-width="1" opacity="0.25"/>
+  <line x1="322" y1="392" x2="267" y2="277" stroke="#0097A7" stroke-width="1" opacity="0.25"/>
+
+  <!-- Central core - the nexus -->
+  <g filter="url(#coreGlow5)">
+    <circle cx="256" cy="256" r="42" fill="url(#coreGrad5)" opacity="0.95"/>
+  </g>
+  <circle cx="256" cy="256" r="52" fill="none" stroke="#FFD700" stroke-width="1.5" opacity="0.25"/>
+
+  <!-- Geometric "M" in center using clean lines -->
+  <g fill="#070b22" opacity="0.9">
+    <path d="M236 276 L236 238 L248 256 L256 244 L264 256 L276 238 L276 276 L270 276 L270 252 L260 268 L256 262 L252 268 L242 252 L242 276 Z"/>
+  </g>
+
+  <!-- Tiny orbiting particles -->
+  <circle cx="420" cy="256" r="3" fill="#00E5FF" opacity="0.4"/>
+  <circle cx="92" cy="256" r="3" fill="#00E5FF" opacity="0.4"/>
+  <circle cx="256" cy="90" r="3" fill="#00BCD4" opacity="0.4"/>
+  <circle cx="256" cy="422" r="3" fill="#00BCD4" opacity="0.4"/>
+
+  <!-- Subtle corner accents -->
+  <path d="M80 120 L80 80 L120 80" fill="none" stroke="#00D9FF" stroke-width="1" opacity="0.15" stroke-linecap="round"/>
+  <path d="M432 120 L432 80 L392 80" fill="none" stroke="#00D9FF" stroke-width="1" opacity="0.15" stroke-linecap="round"/>
+  <path d="M80 392 L80 432 L120 432" fill="none" stroke="#00D9FF" stroke-width="1" opacity="0.15" stroke-linecap="round"/>
+  <path d="M432 392 L432 432 L392 432" fill="none" stroke="#00D9FF" stroke-width="1" opacity="0.15" stroke-linecap="round"/>
+</svg>
