@@ -63,7 +63,8 @@ describe('Toast', () => {
   });
 
   it('should call onClose when close button is clicked', async () => {
-    const user = userEvent.setup({ delay: null });
+    vi.useRealTimers(); // Use real timers for user interaction
+    const user = userEvent.setup();
     const onClose = vi.fn();
     
     render(
@@ -80,6 +81,7 @@ describe('Toast', () => {
     await user.click(closeButton);
 
     expect(onClose).toHaveBeenCalledWith('test-1');
+    vi.useFakeTimers(); // Restore fake timers for other tests
   });
 
   it('should auto-dismiss after duration', () => {
