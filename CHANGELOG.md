@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.10](https://github.com/MCP-Mux/mcp-mux/compare/v0.0.9...v0.0.10) (2026-02-10)
+
+
+### Bug Fixes
+
+* suppress console window for stdio MCP servers on Windows ([#59](https://github.com/MCP-Mux/mcp-mux/issues/59)) ([98f862c](https://github.com/MCP-Mux/mcp-mux/commit/98f862cae83f24c4397fe8e6204215c68b0baf92))
+
 ## [0.0.9](https://github.com/MCP-Mux/mcp-mux/compare/v0.0.8...v0.0.9) (2026-02-09)
 
 
