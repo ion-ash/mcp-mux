@@ -5,4 +5,5 @@
 //! - Server-initiated notifications (list_changed via SSE)
 //! - Proper protocol negotiation
 
+mod gateway_notifications;
 mod notifications;
