@@ -3,6 +3,7 @@
  */
 
 import type { ServerViewModel } from '../../types/registry';
+import { ServerIcon } from '../../components/ServerIcon';
 
 interface ServerCardProps {
   server: ServerViewModel;
@@ -102,7 +103,9 @@ export function ServerCard({
     >
       {/* Header */}
       <div className="flex items-start gap-3 mb-3">
-        <div className="text-3xl flex-shrink-0">{server.icon || '📦'}</div>
+        <div className="text-3xl flex-shrink-0 flex items-center justify-center">
+          <ServerIcon icon={server.icon} />
+        </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5">
             <h3 className="font-semibold truncate" title={server.name} data-testid={`server-name-${server.id}`}>

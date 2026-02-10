@@ -1,5 +1,9 @@
 import { useState, useEffect } from 'react';
 import { listen } from '@tauri-apps/api/event';
+import cursorIcon from '@/assets/client-icons/cursor.svg';
+import vscodeIcon from '@/assets/client-icons/vscode.png';
+import claudeIcon from '@/assets/client-icons/claude.svg';
+import windsurfIcon from '@/assets/client-icons/windsurf.svg';
 import {
   Laptop,
   Loader2,
@@ -75,17 +79,35 @@ const CONNECTION_MODES = [
   },
 ];
 
-// Client icon component
+// Bundled icons for well-known AI clients (matched by client_name)
+const KNOWN_CLIENT_ICONS: Record<string, string> = {
+  cursor: cursorIcon,
+  'vs code': vscodeIcon,
+  vscode: vscodeIcon,
+  'visual studio code': vscodeIcon,
+  'claude desktop': claudeIcon,
+  claude: claudeIcon,
+  windsurf: windsurfIcon,
+  codeium: windsurfIcon,
+};
+
+// Client icon component — uses bundled icon for known clients, falls back to logo_uri, then emoji
 function ClientIcon({ logo_uri, client_name }: { logo_uri?: string | null; client_name: string }) {
-  if (logo_uri) {
-    return <img src={logo_uri} alt={client_name} className="w-6 h-6 rounded" />;
+  const iconUrl = KNOWN_CLIENT_ICONS[client_name.toLowerCase()] || logo_uri;
+  if (iconUrl) {
+    return (
+      <img
+        src={iconUrl}
+        alt={client_name}
+        className="w-full h-full object-contain rounded"
+        onError={(e) => {
+          e.currentTarget.style.display = 'none';
+          e.currentTarget.parentElement!.append(document.createTextNode('🤖'));
+        }}
+      />
+    );
   }
-  
-  // Default icons based on client name
-  if (client_name.toLowerCase().includes('cursor')) return '⚡';
-  if (client_name.toLowerCase().includes('vscode')) return '💻';
-  if (client_name.toLowerCase().includes('code')) return '📝';
-  return '🤖';
+  return <span>🤖</span>;
 }
 
 export default function ClientsPage() {
@@ -713,7 +735,7 @@ export default function ClientsPage() {
                   onClick={() => toggleSection('quickSettings')}
                   className={`w-full flex items-center justify-between p-4 transition-all ${
                     expandedSections.quickSettings 
-                      ? 'bg-gradient-to-r from-cyan-50 to-blue-50 dark:from-cyan-900/20 dark:to-blue-900/20' 
+                      ? 'bg-gradient-to-r from-primary-50 to-primary-100 dark:from-primary-900/20 dark:to-primary-800/20'
                       : 'bg-[rgb(var(--surface))] hover:bg-[rgb(var(--surface-hover))]'
                   }`}
                 >
@@ -1246,7 +1268,7 @@ export default function ClientsPage() {
                   onClick={() => toggleSection('clientInfo')}
                   className={`w-full flex items-center justify-between p-4 transition-all ${
                     expandedSections.clientInfo 
-                      ? 'bg-gradient-to-r from-gray-50 to-slate-50 dark:from-gray-900/20 dark:to-slate-900/20' 
+                      ? 'bg-gradient-to-r from-primary-50 to-primary-100/50 dark:from-primary-900/10 dark:to-primary-800/10'
                       : 'bg-[rgb(var(--surface))] hover:bg-[rgb(var(--surface-hover))]'
                   }`}
                 >
