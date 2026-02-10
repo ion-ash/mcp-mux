@@ -345,6 +345,7 @@ describe('Streamable HTTP: OAuth MCP Client Flow', function () {
   // --------------------------------------------------------------------------
   it('TC-SH-014: Authenticated initialize request to /mcp', async () => {
     const token = await obtainAccessToken(clientId, 'http://localhost:0/callback', gatewayPort);
+    console.log('[test] Token obtained, length:', token.length);
 
     // Send MCP initialize request
     const res = await fetch(`http://localhost:${gatewayPort}/mcp`, {
@@ -368,10 +369,17 @@ describe('Streamable HTTP: OAuth MCP Client Flow', function () {
       }),
     });
 
-    console.log('[test] Initialize response status:', res.status);
-    expect(res.ok).toBe(true);
+    console.log('[test] Initialize response status:', res.status, res.statusText);
+    const responseText = await res.text();
+    console.log('[test] Initialize response body:', responseText.substring(0, 1000));
 
-    const body = await res.json() as {
+    // If response is not OK, provide detailed failure info
+    if (!res.ok) {
+      console.log('[test] FAILURE: /mcp returned', res.status, '- body:', responseText);
+    }
+    expect(res.status).toBeLessThan(400);
+
+    const body = JSON.parse(responseText) as {
       jsonrpc: string;
       id: number;
       result?: {
@@ -414,6 +422,7 @@ describe('Streamable HTTP: OAuth MCP Client Flow', function () {
   // --------------------------------------------------------------------------
   it('TC-SH-015: Session ID returned and usable', async () => {
     const token = await obtainAccessToken(clientId, 'http://localhost:0/callback', gatewayPort);
+    console.log('[test] Token for session test, length:', token.length);
 
     // Initialize to get session ID
     const initRes = await fetch(`http://localhost:${gatewayPort}/mcp`, {
@@ -434,7 +443,13 @@ describe('Streamable HTTP: OAuth MCP Client Flow', function () {
       }),
     });
 
-    expect(initRes.ok).toBe(true);
+    console.log('[test] Session init status:', initRes.status, initRes.statusText);
+    const initText = await initRes.text();
+    console.log('[test] Session init body:', initText.substring(0, 1000));
+    if (!initRes.ok) {
+      console.log('[test] FAILURE: /mcp returned', initRes.status, '- body:', initText);
+    }
+    expect(initRes.status).toBeLessThan(400);
 
     // Check for Mcp-Session-Id in response headers
     const sessionId = initRes.headers.get('mcp-session-id');
