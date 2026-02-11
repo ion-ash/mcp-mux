@@ -198,7 +198,7 @@ function AppContent() {
   );
 
   const titleBar = (
-    <div className="flex items-center gap-2 pl-3">
+    <div className="flex items-center gap-1.5 pl-3">
       <McpMuxGlyph className="h-4 w-4 shrink-0" />
       <span className="text-sm font-bold tracking-tight select-none">
         <span style={{ color: '#E8956A' }}>Mcp</span>
