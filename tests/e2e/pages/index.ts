@@ -7,3 +7,4 @@ export { ServersPage } from './ServersPage';
 export { RegistryPage } from './RegistryPage';
 export { FeatureSetsPage } from './FeatureSetsPage';
 export { ClientsPage } from './ClientsPage';
+export { WelcomeGuidePage } from './WelcomeGuidePage';
