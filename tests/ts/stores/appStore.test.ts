@@ -11,6 +11,7 @@ describe('appStore', () => {
       viewSpaceId: null,
       sidebarCollapsed: false,
       theme: 'system',
+      hasSeenWelcome: false,
       loading: { spaces: false, servers: false },
     });
   });
@@ -275,6 +276,23 @@ describe('appStore', () => {
       useAppStore.getState().setTheme('light');
       useAppStore.getState().setTheme('system');
       expect(useAppStore.getState().theme).toBe('system');
+    });
+  });
+
+  describe('setHasSeenWelcome', () => {
+    it('should default to false', () => {
+      expect(useAppStore.getState().hasSeenWelcome).toBe(false);
+    });
+
+    it('should set hasSeenWelcome to true', () => {
+      useAppStore.getState().setHasSeenWelcome(true);
+      expect(useAppStore.getState().hasSeenWelcome).toBe(true);
+    });
+
+    it('should set hasSeenWelcome back to false', () => {
+      useAppStore.getState().setHasSeenWelcome(true);
+      useAppStore.getState().setHasSeenWelcome(false);
+      expect(useAppStore.getState().hasSeenWelcome).toBe(false);
     });
   });
 

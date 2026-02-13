@@ -28,6 +28,7 @@ import {
 import { ThemeProvider } from '@/components/ThemeProvider';
 import { OAuthConsentModal } from '@/components/OAuthConsentModal';
 import { ServerInstallModal } from '@/components/ServerInstallModal';
+import { WelcomeGuide } from '@/components/WelcomeGuide';
 import { SpaceSwitcher } from '@/components/SpaceSwitcher';
 import { useDataSync } from '@/hooks/useDataSync';
 import { useAppStore, useActiveSpace, useViewSpace, useTheme } from '@/stores';
@@ -245,6 +246,8 @@ function App() {
   return (
     <ThemeProvider>
       <AppContent />
+      {/* Welcome guide - shown on first launch */}
+      <WelcomeGuide />
       {/* OAuth consent modal - shown when MCP clients request authorization */}
       <OAuthConsentModal />
       {/* Server install modal - shown when install deep link is received */}
