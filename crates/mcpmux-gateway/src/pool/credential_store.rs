@@ -207,6 +207,7 @@ impl CredentialStore for DatabaseCredentialStore {
                 Some(StoredCredentials {
                     client_id: reg.client_id,
                     token_response: Some(token_response),
+                    granted_scopes: Vec::new(),
                 })
             }
             (Some(reg), None) => {
@@ -217,6 +218,7 @@ impl CredentialStore for DatabaseCredentialStore {
                 Some(StoredCredentials {
                     client_id: reg.client_id,
                     token_response: None,
+                    granted_scopes: Vec::new(),
                 })
             }
             (None, Some(access)) => {
@@ -228,6 +230,7 @@ impl CredentialStore for DatabaseCredentialStore {
                 Some(StoredCredentials {
                     client_id: String::new(),
                     token_response: Some(token_response),
+                    granted_scopes: Vec::new(),
                 })
             }
             (None, None) => {

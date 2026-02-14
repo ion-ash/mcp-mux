@@ -93,6 +93,7 @@ impl McpClientHandler {
                     title: Some("McpMux Gateway".to_string()),
                     icons: None,
                     website_url: None,
+                    ..Default::default()
                 },
                 meta: None,
             },
