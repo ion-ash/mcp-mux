@@ -298,10 +298,6 @@ export const config: Options.Testrunner = {
   specs: ['./specs/**/*.wdio.ts'],
   exclude: [],
 
-  // Retry failed spec files once to handle transient CI failures
-  // (e.g., WebKit2GTK driver crashes, timing issues on slow CI runners)
-  specFileRetries: process.env.CI ? 1 : 0,
-
   maxInstances: 1, // Tauri only supports one instance
 
   capabilities: [
