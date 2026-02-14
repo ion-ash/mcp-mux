@@ -4227,7 +4227,7 @@ dependencies = [
 [[package]]
 name = "rmcp"
 version = "0.15.0"
-source = "git+https://github.com/ion-ash/rust-sdk.git?branch=fix%2Fsse-channel-replacement-conflict#8bd424efb4126db45fd377bd64ed30c8b3701e8f"
+source = "git+https://github.com/ion-ash/rust-sdk.git?branch=fix%2Fsse-channel-replacement-conflict#c3a557e3b1caef752c108239fda824bc97398fb2"
 dependencies = [
  "async-trait",
  "base64 0.22.1",
@@ -4274,7 +4274,7 @@ dependencies = [
 [[package]]
 name = "rmcp-macros"
 version = "0.15.0"
-source = "git+https://github.com/ion-ash/rust-sdk.git?branch=fix%2Fsse-channel-replacement-conflict#8bd424efb4126db45fd377bd64ed30c8b3701e8f"
+source = "git+https://github.com/ion-ash/rust-sdk.git?branch=fix%2Fsse-channel-replacement-conflict#c3a557e3b1caef752c108239fda824bc97398fb2"
 dependencies = [
  "darling 0.23.0",
  "proc-macro2",

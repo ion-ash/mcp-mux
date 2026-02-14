@@ -587,6 +587,7 @@ mod tests {
         let credentials = StoredCredentials {
             client_id: "new-client-id".to_string(),
             token_response: Some(token_response),
+            granted_scopes: Vec::new(),
         };
 
         store.save(credentials).await.unwrap();
@@ -644,6 +645,7 @@ mod tests {
         let credentials = StoredCredentials {
             client_id: "client-id".to_string(),
             token_response: Some(token_response),
+            granted_scopes: Vec::new(),
         };
 
         store.save(credentials).await.unwrap();
