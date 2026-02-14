@@ -110,6 +110,7 @@ pub fn convert_from_stored_metadata(stored: &StoredOAuthMetadata) -> Authorizati
         scopes_supported: stored.scopes_supported.clone(),
         response_types_supported: stored.response_types_supported.clone(),
         additional_fields: stored.additional_fields.clone(),
+        ..Default::default()
     }
 }
 

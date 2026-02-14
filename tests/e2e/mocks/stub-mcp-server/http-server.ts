@@ -17,8 +17,13 @@ app.use(express.json());
 
 const PORT = process.env.PORT || 3457;
 
-// Store transports by session ID
+// Store transports and MCP server instances by session ID
 const transports = new Map<string, StreamableHTTPServerTransport>();
+const mcpServers = new Map<string, McpServer>();
+
+// Dynamic tools registry: tools added/removed via control endpoints
+// Maps tool name → { description, handler }
+const dynamicTools = new Map<string, { description: string }>();
 
 // Create MCP server instance for a session
 function createMcpServer(): McpServer {
@@ -129,12 +134,31 @@ app.post('/mcp', async (req: Request, res: Response) => {
     transport.onclose = () => {
       if (transport.sessionId) {
         transports.delete(transport.sessionId);
+        mcpServers.delete(transport.sessionId);
         console.log(`[http-server] Session closed: ${transport.sessionId}`);
       }
     };
 
-    const server = createMcpServer();
-    await server.connect(transport);
+    const mcpServer = createMcpServer();
+
+    // Register dynamic tools that were added before this session
+    for (const [name, { description }] of dynamicTools) {
+      mcpServer.tool(
+        name,
+        description,
+        { input: z.string().optional().describe('Optional input') },
+        async ({ input }) => ({
+          content: [{ type: 'text', text: `Dynamic tool ${name}: ${input ?? 'no input'}` }],
+        })
+      );
+    }
+
+    await mcpServer.connect(transport);
+
+    // Store server instance by session ID (after connect, sessionId is set)
+    if (transport.sessionId) {
+      mcpServers.set(transport.sessionId, mcpServer);
+    }
   } else {
     // Invalid request - no session and not an initialize request
     res.status(400).json({
@@ -176,6 +200,116 @@ app.delete('/mcp', async (req: Request, res: Response) => {
 
   const transport = transports.get(sessionId)!;
   await transport.handleRequest(req, res);
+});
+
+// ============================================================================
+// CONTROL ENDPOINTS - for E2E tests to trigger notifications
+// ============================================================================
+
+// Trigger tools/list_changed notification to all connected sessions
+app.post('/control/notify-tools-changed', async (_req: Request, res: Response) => {
+  let notified = 0;
+  for (const [sessionId, server] of mcpServers) {
+    try {
+      server.sendToolListChanged();
+      notified++;
+      console.log(`[http-server] Sent tools/list_changed to session ${sessionId}`);
+    } catch (e) {
+      console.error(`[http-server] Failed to notify session ${sessionId}:`, e);
+    }
+  }
+  res.json({ ok: true, sessions_notified: notified });
+});
+
+// Trigger prompts/list_changed notification to all connected sessions
+app.post('/control/notify-prompts-changed', async (_req: Request, res: Response) => {
+  let notified = 0;
+  for (const [sessionId, server] of mcpServers) {
+    try {
+      server.sendPromptListChanged();
+      notified++;
+      console.log(`[http-server] Sent prompts/list_changed to session ${sessionId}`);
+    } catch (e) {
+      console.error(`[http-server] Failed to notify session ${sessionId}:`, e);
+    }
+  }
+  res.json({ ok: true, sessions_notified: notified });
+});
+
+// Trigger resources/list_changed notification to all connected sessions
+app.post('/control/notify-resources-changed', async (_req: Request, res: Response) => {
+  let notified = 0;
+  for (const [sessionId, server] of mcpServers) {
+    try {
+      server.sendResourceListChanged();
+      notified++;
+      console.log(`[http-server] Sent resources/list_changed to session ${sessionId}`);
+    } catch (e) {
+      console.error(`[http-server] Failed to notify session ${sessionId}:`, e);
+    }
+  }
+  res.json({ ok: true, sessions_notified: notified });
+});
+
+// Dynamically add a tool and notify all sessions
+app.post('/control/add-tool', async (req: Request, res: Response) => {
+  const { name, description } = req.body as { name?: string; description?: string };
+  if (!name) {
+    res.status(400).json({ error: 'name is required' });
+    return;
+  }
+
+  const toolDesc = description || `Dynamic tool: ${name}`;
+  dynamicTools.set(name, { description: toolDesc });
+
+  // Register on all existing sessions and notify
+  let registered = 0;
+  for (const [sessionId, server] of mcpServers) {
+    try {
+      server.tool(
+        name,
+        toolDesc,
+        { input: z.string().optional().describe('Optional input') },
+        async ({ input }) => ({
+          content: [{ type: 'text', text: `Dynamic tool ${name}: ${input ?? 'no input'}` }],
+        })
+      );
+      server.sendToolListChanged();
+      registered++;
+      console.log(`[http-server] Added tool '${name}' to session ${sessionId}`);
+    } catch (e) {
+      console.error(`[http-server] Failed to add tool to session ${sessionId}:`, e);
+    }
+  }
+
+  res.json({ ok: true, tool: name, sessions_updated: registered });
+});
+
+// Dynamically remove a tool and notify all sessions
+app.post('/control/remove-tool', async (req: Request, res: Response) => {
+  const { name } = req.body as { name?: string };
+  if (!name) {
+    res.status(400).json({ error: 'name is required' });
+    return;
+  }
+
+  dynamicTools.delete(name);
+
+  // Notify all sessions (tool removal from McpServer requires re-creating,
+  // but for test purposes we just send the notification and the tool will
+  // fail if called - the important thing is the list_changed notification)
+  let notified = 0;
+  for (const [sessionId, server] of mcpServers) {
+    try {
+      server.sendToolListChanged();
+      notified++;
+      console.log(`[http-server] Removed tool '${name}', notified session ${sessionId}`);
+    } catch (e) {
+      console.error(`[http-server] Failed to notify session ${sessionId}:`, e);
+    }
+  }
+
+  res.json({ ok: true, tool: name, sessions_notified: notified });
 });
 
 // Health check

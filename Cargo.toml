@@ -10,7 +10,7 @@ members = [
 ]
 
 [workspace.package]
-version = "0.0.11"
+version = "0.0.12"
 edition = "2021"
 license = "GPL-3.0-or-later"
 repository = "https://github.com/mcpmux/mcpmux"
@@ -58,7 +58,7 @@ os_pipe = "1"
 
 # MCP Protocol
 # NOTE: Never use local path dependency - E:\one-mcp\rust-sdk is for source lookup only
-rmcp = { version = "0.14.0", features = [
+rmcp = { version = "0.15.0", features = [
     "client",
     "server",
     "transport-io",
@@ -83,5 +83,10 @@ mcpmux-storage = { path = "crates/mcpmux-storage" }
 lto = true
 codegen-units = 1
 strip = true
+
+# Temporary patch: fixes SSE channel replacement bug (notifications lost on reconnect)
+# Remove once upstream merges https://github.com/modelcontextprotocol/rust-sdk/pull/660
+[patch.crates-io]
+rmcp = { git = "https://github.com/ion-ash/rust-sdk.git", branch = "fix/sse-channel-replacement-conflict" }
 
 
