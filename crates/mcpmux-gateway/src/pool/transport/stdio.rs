@@ -209,8 +209,12 @@ impl StdioTransport {
             };
 
         // Create client handler
-        let client_handler =
-            create_client_handler(&self.server_id, self.space_id, self.event_tx.clone());
+        let client_handler = create_client_handler(
+            &self.server_id,
+            self.space_id,
+            self.event_tx.clone(),
+            self.log_manager.clone(),
+        );
 
         // Connect with timeout
         let connect_future = client_handler.serve(transport);
