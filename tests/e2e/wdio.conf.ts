@@ -204,13 +204,32 @@ function closeTauriDriver() {
   shouldExit = true;
   if (tauriDriver) {
     tauriDriver.kill();
+    tauriDriver = null;
   }
-  stopMockServers();
-  // Kill any lingering tauri-driver processes on Linux to free port 4444.
-  // The tauriDriver.kill() above sends SIGTERM which may not exit promptly.
-  if (process.platform !== 'win32') {
-    spawnSync('pkill', ['-9', 'tauri-driver'], { stdio: 'ignore' });
+  // NOTE: Do NOT pkill tauri-driver or stop mock servers here.
+  // This function is called during afterSession while WebdriverIO's own
+  // deleteSession is still in-flight. Killing tauri-driver at this point
+  // causes connection errors that cascade to all subsequent workers.
+  // Aggressive cleanup is done in beforeSession instead, before spawning
+  // a fresh tauri-driver.
+}
+
+// Wait for tauri-driver to accept WebDriver connections on port 4444.
+// Polls GET /status until tauri-driver responds (any HTTP response means it's ready).
+async function waitForTauriDriverReady(timeout = 30000): Promise<boolean> {
+  const start = Date.now();
+  while (Date.now() - start < timeout) {
+    try {
+      await fetch('http://localhost:4444/status');
+      console.log('[e2e] tauri-driver is ready on port 4444');
+      return true;
+    } catch {
+      // Not ready yet (ECONNREFUSED)
+    }
+    await new Promise((resolve) => setTimeout(resolve, 500));
   }
+  console.error(`[e2e] tauri-driver not ready after ${timeout}ms`);
+  return false;
 }
 
 // Kill any processes listening on our mock server ports (leftover from previous runs)
@@ -277,9 +296,10 @@ function onShutdown(fn: () => void) {
   process.on('SIGTERM', cleanup);
 }
 
-// Ensure tauri-driver is closed when test process exits
+// Ensure tauri-driver and mock servers are closed when test process exits
 onShutdown(() => {
   closeTauriDriver();
+  stopMockServers();
 });
 
 export const config: Options.Testrunner = {
@@ -399,11 +419,32 @@ export const config: Options.Testrunner = {
     await startMockServers();
   },
 
-  // Start tauri-driver before the session starts
-  beforeSession: function () {
+  // Start tauri-driver before the session starts.
+  // Performs aggressive cleanup of leftover processes from the previous spec
+  // before spawning a fresh tauri-driver, then waits for it to be ready.
+  beforeSession: async function () {
     shouldExit = false;
     tauriDriverCrashed = false;
 
+    // --- Aggressive cleanup from previous spec ---
+    // Kill any leftover tauri-driver processes (may remain if previous spec crashed).
+    // This is safe to do here because no tauri-driver should be running between specs.
+    if (process.platform !== 'win32') {
+      spawnSync('pkill', ['-9', 'tauri-driver'], { stdio: 'ignore' });
+    }
+    // Kill any leftover mcpmux app processes and clear single-instance lock
+    killMcpmuxProcesses();
+    clearSingleInstanceLock();
+
+    // Free the gateway port (45818) in case mcpmux didn't release it
+    if (process.platform !== 'win32') {
+      spawnSync('fuser', ['-k', '-9', '45818/tcp'], { stdio: 'ignore' });
+    }
+
+    // Wait for OS to fully reclaim process resources (ports, file locks, etc.)
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+
+    // --- Spawn fresh tauri-driver ---
     const tauriDriverPath = path.resolve(
       os.homedir(),
       '.cargo',
@@ -437,18 +478,21 @@ export const config: Options.Testrunner = {
         tauriDriverCrashed = true;
       }
     });
+
+    // Wait for tauri-driver to be ready before letting WebdriverIO create a session.
+    // Without this, WebdriverIO may send POST /session before tauri-driver is listening,
+    // causing a 2-minute timeout (connectionRetryTimeout) and cascading failures.
+    await waitForTauriDriverReady(30000);
   },
 
-  // Stop tauri-driver after the session
+  // Stop tauri-driver after the session.
+  // Uses graceful SIGTERM only — aggressive cleanup (pkill -9) is deferred to
+  // the next spec's beforeSession to avoid racing with WebdriverIO's own
+  // deleteSession call, which would cause cascading failures in subsequent specs.
   afterSession: async function () {
     closeTauriDriver();
 
-    // Kill the mcpmux app process and clear lock to prevent conflicts between test workers
-    killMcpmuxProcesses();
-    clearSingleInstanceLock();
-
-    // Brief pause to let processes fully exit before the next spec's beforeSession
-    // starts a fresh tauri-driver. On Linux CI, process teardown can be slower.
+    // Brief pause to let tauri-driver/mcpmux handle SIGTERM gracefully
     await new Promise((resolve) => setTimeout(resolve, 1000));
   },
 
