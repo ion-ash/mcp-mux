@@ -87,6 +87,6 @@ strip = true
 # Temporary patch: fixes SSE channel replacement bug (notifications lost on reconnect)
 # Remove once upstream merges https://github.com/modelcontextprotocol/rust-sdk/pull/660
 [patch.crates-io]
-rmcp = { git = "https://github.com/ion-ash/rust-sdk.git", branch = "fix/sse-channel-replacement-conflict" }
+rmcp = { git = "https://github.com/mcpmux/rust-sdk.git", branch = "fix/sse-channel-replacement-conflict" }
 
 

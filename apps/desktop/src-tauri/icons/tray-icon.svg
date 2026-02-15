@@ -15,6 +15,10 @@
   <path d="M 13.9 22.2 Q 16 24.3 18.1 22.2" stroke="white" stroke-width="0.9" stroke-linecap="round" fill="none" opacity="0.95"/>
   <path d="M 14 21 C 12.8 20.4 11 20.2 9.5 20.4 C 9 20.4 8.7 20.2 8.6 19.9" stroke="white" stroke-width="0.9" stroke-linecap="round" fill="none" opacity="0.7"/>
   <circle cx="8.6" cy="19.9" r="1.1" fill="white" opacity="0.75"/>
+  <path d="M 14 22.2 C 12.6 22.2 11 22.6 9.5 23.3 C 9 23.5 8.7 23.3 8.6 23" stroke="white" stroke-width="0.8" stroke-linecap="round" fill="none" opacity="0.65"/>
+  <circle cx="8.6" cy="23" r="1" fill="white" opacity="0.7"/>
   <path d="M 18 21 C 19.2 20.4 21 20.2 22.5 20.4 C 23 20.4 23.3 20.2 23.4 19.9" stroke="white" stroke-width="0.9" stroke-linecap="round" fill="none" opacity="0.7"/>
   <circle cx="23.4" cy="19.9" r="1.1" fill="white" opacity="0.75"/>
+  <path d="M 18 22.2 C 19.4 22.2 21 22.6 22.5 23.3 C 23 23.5 23.3 23.3 23.4 23" stroke="white" stroke-width="0.8" stroke-linecap="round" fill="none" opacity="0.65"/>
+  <circle cx="23.4" cy="23" r="1" fill="white" opacity="0.7"/>
 </svg>

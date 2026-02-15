@@ -196,7 +196,7 @@ jobs:
           echo "x64   SHA256: $SHA_X64"
 
           # Clone the tap repo and update the cask
-          git clone https://x-access-token:${GH_TOKEN}@github.com/ion-ash/homebrew-mcpmux.git tap
+          git clone https://x-access-token:${GH_TOKEN}@github.com/mcpmux/homebrew-mcpmux.git tap
 
           # Generate cask file (Ruby heredoc content with shell variable expansion)
           CASK_FILE="tap/Casks/mcpmux.rb"
@@ -208,8 +208,8 @@ jobs:
             echo "  sha256 arm:   \"${SHA_ARM64}\","
             echo "         intel: \"${SHA_X64}\""
             echo ''
-            echo '  url "https://github.com/ion-ash/mcp-mux/releases/download/v#{version}/McpMux_#{version}_#{arch}.dmg",'
-            echo '      verified: "github.com/ion-ash/mcp-mux/"'
+            echo '  url "https://github.com/mcpmux/mcp-mux/releases/download/v#{version}/McpMux_#{version}_#{arch}.dmg",'
+            echo '      verified: "github.com/mcpmux/mcp-mux/"'
             echo ''
             echo '  name "McpMux"'
             echo '  desc "Unified MCP gateway and manager for AI clients"'
@@ -218,7 +218,7 @@ jobs:
             echo '  depends_on macos: ">= :high_sierra"'
             echo ''
             echo '  livecheck do'
-            echo '    url "https://github.com/ion-ash/mcp-mux/releases/latest"'
+            echo '    url "https://github.com/mcpmux/mcp-mux/releases/latest"'
             echo '    strategy :github_latest'
             echo '  end'
             echo ''
