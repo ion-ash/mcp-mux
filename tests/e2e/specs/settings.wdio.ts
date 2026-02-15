@@ -3,11 +3,17 @@
  * Uses data-testid only (ADR-003).
  */
 
-import { byTestId } from '../helpers/selectors';
+import { byTestId, TIMEOUT } from '../helpers/selectors';
 
 describe('Settings Page', () => {
   before(async () => {
+    // Wait for app to fully load (on CI, app startup can be slower after many prior specs)
+    await browser.pause(3000);
+    const sidebar = await byTestId('sidebar');
+    await sidebar.waitForDisplayed({ timeout: TIMEOUT.veryLong });
+
     const settingsBtn = await byTestId('nav-settings');
+    await settingsBtn.waitForClickable({ timeout: TIMEOUT.medium });
     await settingsBtn.click();
     await browser.pause(2000);
   });

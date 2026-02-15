@@ -54,7 +54,7 @@ jobs:
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: 'pnpm'
 
       # Cache pnpm store for faster installs
@@ -161,6 +161,20 @@ jobs:
         with:
           pattern: e2e-desktop-results-*
           path: test-results
+
+      # Remove malformed/empty JUnit XMLs that crash dorny/test-reporter.
+      # This can happen when tauri-driver crashes mid-spec and the JUnit
+      # reporter writes incomplete XML (missing testsuites or test names).
+      - name: Sanitize JUnit XML reports
+        if: always()
+        run: |
+          for f in test-results/e2e-desktop-results-*/reports/*.xml; do
+            [ -f "$f" ] || continue
+            if ! grep -q '<testsuites' "$f" 2>/dev/null; then
+              echo "Removing malformed JUnit XML: $f"
+              rm "$f"
+            fi
+          done
 
       - name: 'Report: E2E Desktop Tests (Linux)'
         uses: dorny/test-reporter@v2

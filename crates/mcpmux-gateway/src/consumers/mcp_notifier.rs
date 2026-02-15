@@ -415,7 +415,7 @@ impl MCPNotifier {
                     feature_set_id = %feature_set_id,
                     "[MCPNotifier] 📨 GrantIssued - notifying all clients in space"
                 );
-                self.notify_all_list_changed(space_id).await;
+                self.notify_all_list_changed(space_id, true).await;
             }
 
             DomainEvent::GrantRevoked {
@@ -429,7 +429,7 @@ impl MCPNotifier {
                     feature_set_id = %feature_set_id,
                     "[MCPNotifier] 📨 GrantRevoked - notifying all clients in space"
                 );
-                self.notify_all_list_changed(space_id).await;
+                self.notify_all_list_changed(space_id, true).await;
             }
 
             DomainEvent::ClientGrantsUpdated {
@@ -443,7 +443,7 @@ impl MCPNotifier {
                     feature_sets = feature_set_ids.len(),
                     "[MCPNotifier] 📨 ClientGrantsUpdated - notifying all clients in space"
                 );
-                self.notify_all_list_changed(space_id).await;
+                self.notify_all_list_changed(space_id, true).await;
             }
 
             DomainEvent::FeatureSetMembersChanged {
@@ -456,7 +456,7 @@ impl MCPNotifier {
                     feature_set_id = %feature_set_id,
                     "[MCPNotifier] 📨 FeatureSetMembersChanged - notifying all clients in space"
                 );
-                self.notify_all_list_changed(space_id).await;
+                self.notify_all_list_changed(space_id, true).await;
             }
 
             // ============ Backend Server Notifications (Pass-through with Throttling) ============
@@ -523,7 +523,7 @@ impl MCPNotifier {
                         status = ?status,
                         "[MCPNotifier] ServerStatusChanged (Disconnected) - notifying clients to clear features"
                     );
-                    self.notify_all_list_changed(space_id).await;
+                    self.notify_all_list_changed(space_id, false).await;
                 } else {
                     debug!(
                         server_id = %server_id,
@@ -549,7 +549,7 @@ impl MCPNotifier {
                     removed = removed.len(),
                     "[MCPNotifier] ServerFeaturesRefreshed"
                 );
-                self.notify_all_list_changed(space_id).await;
+                self.notify_all_list_changed(space_id, false).await;
             }
 
             // Other events that affect MCP capabilities are handled above
@@ -571,8 +571,13 @@ impl MCPNotifier {
     /// **Important**: This method handles throttling at the batch level and marks
     /// all individual notification types as sent, preventing double-notifications
     /// when individual DomainEvent::ToolsChanged/etc. events arrive shortly after.
-    async fn notify_all_list_changed(&self, space_id: Uuid) {
-        // 1. Content-Based Deduping
+    ///
+    /// **`force` parameter**: When `true`, skips content-based hash dedup. Used for
+    /// grant-related events where the total features in the space haven't changed but
+    /// the *effective* features visible to clients have (due to grant/feature set changes).
+    /// The hash is computed from all features in the space, so it can't detect grant changes.
+    async fn notify_all_list_changed(&self, space_id: Uuid, force: bool) {
+        // 1. Content-Based Deduping (skipped when force=true)
         let tools_hash = self
             .calculate_feature_hash(space_id, FeatureType::Tool)
             .await;
@@ -583,23 +588,27 @@ impl MCPNotifier {
             .calculate_feature_hash(space_id, FeatureType::Resource)
             .await;
 
-        let any_changed = {
-            let hashes = self.state_hashes.read();
-            let t_changed = hashes
-                .get(&(space_id, NotificationType::Tools))
-                .is_none_or(|&h| h != tools_hash);
-            let p_changed = hashes
-                .get(&(space_id, NotificationType::Prompts))
-                .is_none_or(|&h| h != prompts_hash);
-            let r_changed = hashes
-                .get(&(space_id, NotificationType::Resources))
-                .is_none_or(|&h| h != resources_hash);
-            t_changed || p_changed || r_changed
-        };
+        if !force {
+            let any_changed = {
+                let hashes = self.state_hashes.read();
+                let t_changed = hashes
+                    .get(&(space_id, NotificationType::Tools))
+                    .is_none_or(|&h| h != tools_hash);
+                let p_changed = hashes
+                    .get(&(space_id, NotificationType::Prompts))
+                    .is_none_or(|&h| h != prompts_hash);
+                let r_changed = hashes
+                    .get(&(space_id, NotificationType::Resources))
+                    .is_none_or(|&h| h != resources_hash);
+                t_changed || p_changed || r_changed
+            };
 
-        if !any_changed {
-            debug!(space_id = %space_id, "[MCPNotifier] 🛑 Batch content unchanged, skipping");
-            return;
+            if !any_changed {
+                debug!(space_id = %space_id, "[MCPNotifier] 🛑 Batch content unchanged, skipping");
+                return;
+            }
+        } else {
+            info!(space_id = %space_id, "[MCPNotifier] 🔓 Force-sending (grant/feature set change, bypassing hash dedup)");
         }
 
         let now = Instant::now();

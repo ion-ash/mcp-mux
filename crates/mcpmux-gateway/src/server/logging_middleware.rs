@@ -45,6 +45,7 @@ fn redact_headers_compact(headers: &axum::http::HeaderMap) -> String {
                     | "user-agent"
                     | "mcp-session-id"
                     | "mcp-protocol-version"
+                    | "last-event-id"
             )
         })
         .map(|(name, value)| {
@@ -208,7 +209,23 @@ pub async fn http_logging_middleware(request: Request, next: Next) -> Result<Res
             let response = next.run(request).await;
             let status = response.status().as_u16();
 
-            // Extract response body to log it
+            // Check if this is a streaming response (SSE) — NEVER buffer these.
+            // SSE responses have Content-Type: text/event-stream and are infinite
+            // streams. Calling body.collect() would block forever, preventing VS Code
+            // from receiving any SSE events (notifications, keep-alive pings).
+            let is_streaming = response
+                .headers()
+                .get("content-type")
+                .and_then(|v| v.to_str().ok())
+                .is_some_and(|ct| ct.contains("text/event-stream"));
+
+            if is_streaming {
+                // For SSE streams, log entry only and pass through without touching body
+                RequestSpan::log_exit(&ctx, status, None);
+                return Ok(response);
+            }
+
+            // For non-streaming responses, capture body for logging
             let (parts, body) = response.into_parts();
             let body_bytes = match body.collect().await {
                 Ok(collected) => collected.to_bytes(),

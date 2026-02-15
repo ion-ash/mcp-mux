@@ -28,6 +28,7 @@ let mockBundleApi: ChildProcess | null = null;
 let stubMcpHttp: ChildProcess | null = null;
 let stubMcpOauth: ChildProcess | null = null;
 let shouldExit = false;
+let tauriDriverCrashed = false;
 
 // Mock server ports
 // Use 8787 for bundle API because that's the app's default MCPMUX_REGISTRY_URL
@@ -201,8 +202,34 @@ function stopMockServers(): void {
 
 function closeTauriDriver() {
   shouldExit = true;
-  tauriDriver?.kill();
-  stopMockServers();
+  if (tauriDriver) {
+    tauriDriver.kill();
+    tauriDriver = null;
+  }
+  // NOTE: Do NOT pkill tauri-driver or stop mock servers here.
+  // This function is called during afterSession while WebdriverIO's own
+  // deleteSession is still in-flight. Killing tauri-driver at this point
+  // causes connection errors that cascade to all subsequent workers.
+  // Aggressive cleanup is done in beforeSession instead, before spawning
+  // a fresh tauri-driver.
+}
+
+// Wait for tauri-driver to accept WebDriver connections on port 4444.
+// Polls GET /status until tauri-driver responds (any HTTP response means it's ready).
+async function waitForTauriDriverReady(timeout = 30000): Promise<boolean> {
+  const start = Date.now();
+  while (Date.now() - start < timeout) {
+    try {
+      await fetch('http://localhost:4444/status');
+      console.log('[e2e] tauri-driver is ready on port 4444');
+      return true;
+    } catch {
+      // Not ready yet (ECONNREFUSED)
+    }
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+  console.error(`[e2e] tauri-driver not ready after ${timeout}ms`);
+  return false;
 }
 
 // Kill any processes listening on our mock server ports (leftover from previous runs)
@@ -229,11 +256,12 @@ function killPortProcesses(): void {
 function killMcpmuxProcesses(): void {
   try {
     if (process.platform === 'win32') {
-      // On Windows, use taskkill
+      // On Windows, use taskkill (matches exact process name)
       spawnSync('taskkill', ['/F', '/IM', 'mcpmux.exe'], { stdio: 'ignore' });
     } else {
-      // On Linux, use pkill
-      spawnSync('pkill', ['-9', '-f', 'mcpmux'], { stdio: 'ignore' });
+      // On Linux, kill only the exact mcpmux binary (not anything with "mcpmux" in its cmdline).
+      // pkill without -f matches the process name only, which is safer than -f (full cmdline).
+      spawnSync('pkill', ['-9', 'mcpmux'], { stdio: 'ignore' });
     }
     console.log('[e2e] Killed any existing mcpmux processes');
   } catch (error) {
@@ -268,9 +296,10 @@ function onShutdown(fn: () => void) {
   process.on('SIGTERM', cleanup);
 }
 
-// Ensure tauri-driver is closed when test process exits
+// Ensure tauri-driver and mock servers are closed when test process exits
 onShutdown(() => {
   closeTauriDriver();
+  stopMockServers();
 });
 
 export const config: Options.Testrunner = {
@@ -315,11 +344,17 @@ export const config: Options.Testrunner = {
         return `wdio-junit-${options.cid}.xml`;
       },
     }],
-    [video, {
-      saveAllVideos: process.env.SAVE_ALL_VIDEOS === 'true', // Save all videos when env var is set
-      videoSlowdownMultiplier: 1, // Normal speed
-      outputDir: './tests/e2e/videos/',
-    }],
+    // Only enable video reporter when explicitly requested via SAVE_ALL_VIDEOS=true.
+    // The video reporter takes a screenshot after every WebDriver command, including
+    // during session teardown. This races with deleteSession killing the Tauri app,
+    // causing UND_ERR_SOCKET errors that mark passing specs as FAILED.
+    ...(process.env.SAVE_ALL_VIDEOS === 'true'
+      ? [[video, {
+          saveAllVideos: true,
+          videoSlowdownMultiplier: 1,
+          outputDir: './tests/e2e/videos/',
+        }]]
+      : []),
   ],
 
   mochaOpts: {
@@ -334,8 +369,15 @@ export const config: Options.Testrunner = {
       // Sanitize test title: replace invalid filename chars (NTFS: " : < > | * ? \r \n) and spaces
       const safeTitle = test.title.replace(/[":*?<>|\r\n\\\/]+/g, '-').replace(/\s+/g, '_');
       const filename = `./tests/e2e/screenshots/FAIL-${safeTitle}-${timestamp}.png`;
-      await browser.saveScreenshot(filename);
-      console.log(`[e2e] Screenshot saved: ${filename}`);
+      try {
+        await browser.saveScreenshot(filename);
+        console.log(`[e2e] Screenshot saved: ${filename}`);
+      } catch {
+        // Screenshot may fail if tauri-driver crashed
+        if (tauriDriverCrashed) {
+          console.error(`[e2e] Cannot save screenshot - tauri-driver crashed`);
+        }
+      }
     }
   },
 
@@ -360,10 +402,13 @@ export const config: Options.Testrunner = {
     // Verify app is built
     checkAppBuilt();
 
-    // Kill any leftover mcpmux processes and clear all app data BEFORE
+    // Kill any leftover mcpmux and tauri-driver processes and clear all app data BEFORE
     // tauri-driver starts the app. This avoids EBUSY errors from trying
     // to delete the SQLite DB while the app still holds a lock on it.
     killMcpmuxProcesses();
+    if (process.platform !== 'win32') {
+      spawnSync('pkill', ['-9', 'tauri-driver'], { stdio: 'ignore' });
+    }
     // Brief pause to let processes fully exit
     await new Promise((resolve) => setTimeout(resolve, 2000));
     clearSingleInstanceLock();
@@ -380,8 +425,32 @@ export const config: Options.Testrunner = {
     await startMockServers();
   },
 
-  // Start tauri-driver before the session starts
-  beforeSession: function () {
+  // Start tauri-driver before the session starts.
+  // Performs aggressive cleanup of leftover processes from the previous spec
+  // before spawning a fresh tauri-driver, then waits for it to be ready.
+  beforeSession: async function () {
+    shouldExit = false;
+    tauriDriverCrashed = false;
+
+    // --- Aggressive cleanup from previous spec ---
+    // Kill any leftover tauri-driver processes (may remain if previous spec crashed).
+    // This is safe to do here because no tauri-driver should be running between specs.
+    if (process.platform !== 'win32') {
+      spawnSync('pkill', ['-9', 'tauri-driver'], { stdio: 'ignore' });
+    }
+    // Kill any leftover mcpmux app processes and clear single-instance lock
+    killMcpmuxProcesses();
+    clearSingleInstanceLock();
+
+    // Free the gateway port (45818) in case mcpmux didn't release it
+    if (process.platform !== 'win32') {
+      spawnSync('fuser', ['-k', '-9', '45818/tcp'], { stdio: 'ignore' });
+    }
+
+    // Wait for OS to fully reclaim process resources (ports, file locks, etc.)
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+
+    // --- Spawn fresh tauri-driver ---
     const tauriDriverPath = path.resolve(
       os.homedir(),
       '.cargo',
@@ -400,24 +469,42 @@ export const config: Options.Testrunner = {
 
     tauriDriver.on('error', (error) => {
       console.error('[tauri-driver] Error:', error);
-      process.exit(1);
+      // Don't call process.exit(1) - it kills the worker before JUnit XML
+      // reports are finalized, resulting in malformed/empty XML files.
+      // Let WebdriverIO handle the failure naturally via connection errors.
+      tauriDriverCrashed = true;
     });
 
     tauriDriver.on('exit', (code) => {
       if (!shouldExit) {
-        console.error('[tauri-driver] Exited with code:', code);
-        process.exit(1);
+        console.error('[tauri-driver] Exited unexpectedly with code:', code);
+        // Don't call process.exit(1) - let the test fail gracefully so that
+        // JUnit XML reports are properly written. WebdriverIO will detect
+        // the broken connection and fail the affected tests.
+        tauriDriverCrashed = true;
       }
     });
+
+    // Wait for tauri-driver to be ready before letting WebdriverIO create a session.
+    // Without this, WebdriverIO may send POST /session before tauri-driver is listening,
+    // causing a 2-minute timeout (connectionRetryTimeout) and cascading failures.
+    await waitForTauriDriverReady(30000);
   },
 
-  // Stop tauri-driver after the session
-  afterSession: function () {
+  // Stop tauri-driver after the session.
+  // Uses graceful SIGTERM only — aggressive cleanup (pkill -9) is deferred to
+  // the next spec's beforeSession to avoid racing with WebdriverIO's own
+  // deleteSession call, which would cause cascading failures in subsequent specs.
+  afterSession: async function () {
+    // Mark as crashed to prevent afterTest screenshot attempts against a dying session.
+    // On Linux, WebKitGTK tears down the process synchronously on deleteSession,
+    // so any pending screenshot requests will hit a dead socket.
+    tauriDriverCrashed = true;
+
     closeTauriDriver();
-    
-    // Kill the mcpmux app process and clear lock to prevent conflicts between test workers
-    killMcpmuxProcesses();
-    clearSingleInstanceLock();
+
+    // Brief pause to let tauri-driver/mcpmux handle SIGTERM gracefully
+    await new Promise((resolve) => setTimeout(resolve, 1000));
   },
 
   // Clean up mock servers after all tests complete

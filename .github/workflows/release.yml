@@ -53,7 +53,7 @@ jobs:
           - os: macos-latest
             target: aarch64-apple-darwin
             artifact: macos-arm
-          - os: macos-15
+          - os: macos-13
             target: x86_64-apple-darwin
             artifact: macos-intel
 
@@ -89,7 +89,7 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      # Import Apple certificate for macOS signing
+      # Import Apple certificate for macOS signing (only when Developer ID is available)
       - name: Import Apple certificate
         if: matrix.os == 'macos-latest' || matrix.os == 'macos-15'
         env:
@@ -97,14 +97,31 @@ jobs:
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
         run: |
-          if [ -n "$APPLE_CERTIFICATE" ]; then
-            echo $APPLE_CERTIFICATE | base64 --decode > certificate.p12
-            security create-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
-            security default-keychain -s build.keychain
-            security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
-            security import certificate.p12 -k build.keychain -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
-            security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" build.keychain
-            rm certificate.p12
+          if [ -z "$APPLE_CERTIFICATE" ] || [ -z "$KEYCHAIN_PASSWORD" ]; then
+            echo "No Apple certificate configured — skipping import"
+            exit 0
+          fi
+          echo "$APPLE_CERTIFICATE" | base64 --decode > certificate.p12
+          security create-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security import certificate.p12 -k build.keychain -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" build.keychain
+          rm certificate.p12
+
+      # Determine macOS signing identity: Developer ID if available, ad-hoc (-) otherwise
+      - name: Resolve macOS signing identity
+        if: matrix.os == 'macos-latest' || matrix.os == 'macos-15'
+        id: macos-signing
+        env:
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+        run: |
+          if [ -n "$APPLE_SIGNING_IDENTITY" ]; then
+            echo "identity=$APPLE_SIGNING_IDENTITY" >> "$GITHUB_OUTPUT"
+            echo "Using Developer ID signing"
+          else
+            echo "identity=-" >> "$GITHUB_OUTPUT"
+            echo "Using ad-hoc signing (no Apple Developer ID)"
           fi
 
       - name: Build Tauri app
@@ -114,11 +131,11 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
           PKG_CONFIG_PATH: /usr/lib/x86_64-linux-gnu/pkgconfig:/usr/lib/pkgconfig:/usr/share/pkgconfig
-          # macOS signing
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          # macOS signing — falls back to ad-hoc (-) when no Apple Developer cert
+          APPLE_SIGNING_IDENTITY: ${{ steps.macos-signing.outputs.identity }}
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          # macOS notarization
+          # macOS notarization (only works with Developer ID)
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
@@ -131,3 +148,100 @@ jobs:
           releaseDraft: false
           prerelease: false
           updaterJsonKeepUniversal: true
+
+  # ─────────────────────────────────────────────────────────────
+  # Update Homebrew Tap: Push new version to homebrew-mcpmux
+  # ─────────────────────────────────────────────────────────────
+  update-homebrew:
+    needs: [release-please, build-release]
+    if: needs.release-please.outputs.release_created == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Wait for release assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ needs.release-please.outputs.version }}"
+          TAG="${{ needs.release-please.outputs.tag_name }}"
+          echo "Checking release assets for $TAG..."
+
+          # Wait up to 5 minutes for macOS DMGs to appear
+          for i in $(seq 1 30); do
+            ASSETS=$(gh api repos/${{ github.repository }}/releases/tags/$TAG --jq '.assets[].name' 2>/dev/null || echo "")
+            if echo "$ASSETS" | grep -q "aarch64.dmg" && echo "$ASSETS" | grep -q "x64.dmg"; then
+              echo "Both macOS DMGs found"
+              break
+            fi
+            echo "Waiting for macOS DMGs... (attempt $i/30)"
+            sleep 10
+          done
+
+      - name: Compute SHA256 and update cask
+        env:
+          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: |
+          VERSION="${{ needs.release-please.outputs.version }}"
+          BASE_URL="https://github.com/${{ github.repository }}/releases/download/v${VERSION}"
+
+          # Download DMGs and compute SHA256
+          echo "Downloading macOS DMGs..."
+          curl -fSL "${BASE_URL}/McpMux_${VERSION}_aarch64.dmg" -o arm64.dmg || { echo "ARM64 DMG not found — skipping Homebrew update"; exit 0; }
+          curl -fSL "${BASE_URL}/McpMux_${VERSION}_x64.dmg" -o x64.dmg || { echo "x64 DMG not found — skipping Homebrew update"; exit 0; }
+
+          SHA_ARM64=$(shasum -a 256 arm64.dmg | cut -d' ' -f1)
+          SHA_X64=$(shasum -a 256 x64.dmg | cut -d' ' -f1)
+          echo "ARM64 SHA256: $SHA_ARM64"
+          echo "x64   SHA256: $SHA_X64"
+
+          # Clone the tap repo and update the cask
+          git clone https://x-access-token:${GH_TOKEN}@github.com/ion-ash/homebrew-mcpmux.git tap
+
+          # Generate cask file (Ruby heredoc content with shell variable expansion)
+          CASK_FILE="tap/Casks/mcpmux.rb"
+          {
+            echo 'cask "mcpmux" do'
+            echo '  arch arm: "aarch64", intel: "x64"'
+            echo ''
+            echo "  version \"${VERSION}\""
+            echo "  sha256 arm:   \"${SHA_ARM64}\","
+            echo "         intel: \"${SHA_X64}\""
+            echo ''
+            echo '  url "https://github.com/ion-ash/mcp-mux/releases/download/v#{version}/McpMux_#{version}_#{arch}.dmg",'
+            echo '      verified: "github.com/ion-ash/mcp-mux/"'
+            echo ''
+            echo '  name "McpMux"'
+            echo '  desc "Unified MCP gateway and manager for AI clients"'
+            echo '  homepage "https://mcpmux.com"'
+            echo ''
+            echo '  depends_on macos: ">= :high_sierra"'
+            echo ''
+            echo '  livecheck do'
+            echo '    url "https://github.com/ion-ash/mcp-mux/releases/latest"'
+            echo '    strategy :github_latest'
+            echo '  end'
+            echo ''
+            echo '  app "McpMux.app"'
+            echo ''
+            echo '  # Remove quarantine for ad-hoc signed app (no Apple Developer ID)'
+            echo '  postflight do'
+            echo '    system_command "/usr/bin/xattr",'
+            echo '                   args: ["-cr", "#{appdir}/McpMux.app"]'
+            echo '  end'
+            echo ''
+            echo '  zap trash: ['
+            echo '    "~/Library/Application Support/com.mcpmux.desktop",'
+            echo '    "~/Library/Preferences/com.mcpmux.desktop.plist",'
+            echo '    "~/Library/Caches/com.mcpmux.desktop",'
+            echo '    "~/Library/Saved Application State/com.mcpmux.desktop.savedState",'
+            echo '  ]'
+            echo 'end'
+          } > "$CASK_FILE"
+
+          cd tap
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Casks/mcpmux.rb
+          git commit -m "Update mcpmux to ${VERSION}"
+          git push
