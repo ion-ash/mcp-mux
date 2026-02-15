@@ -13,7 +13,7 @@
 import { useState, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
-import { Shield, Check, X, AlertCircle, Loader2, Globe, Lock } from 'lucide-react';
+import { Check, X, AlertCircle, Loader2, Globe, Lock } from 'lucide-react';
 import {
   Button,
   Card,
@@ -293,17 +293,11 @@ export function OAuthConsentModal() {
       <Card className="w-full max-w-md mx-4 shadow-xl animate-in fade-in zoom-in duration-200">
         <CardHeader>
           <div className="flex items-center gap-3">
-            {logoUrl ? (
-              <img
-                src={logoUrl}
-                alt={details.clientName}
-                className="h-10 w-10 rounded-full"
-              />
-            ) : (
-              <div className="p-2 rounded-full bg-primary-500/10">
-                <Shield className="h-6 w-6 text-primary-500" />
-              </div>
-            )}
+            <img
+              src="/mcpmux.svg"
+              alt="McpMux"
+              className="h-10 w-10 rounded-lg"
+            />
             <div>
               <CardTitle>Authorization Request</CardTitle>
               <CardDescription>
