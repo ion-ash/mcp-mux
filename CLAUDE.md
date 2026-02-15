@@ -106,6 +106,7 @@ Rust 1.75+, Node.js 20+, pnpm 9+. Linux: `gnome-keyring libsecret-1-dev librsvg2
 - Rust: 100 char max width, 4-space indent, `clippy` with `avoid-breaking-exported-api = false`
 - TypeScript/JSX: Prettier with single quotes, 2-space indent, 100 char width, trailing commas (es5), Tailwind CSS plugin
 - Commits require `Signed-off-by` line (use `git commit -s`)
+- Do NOT add `Co-Authored-By` lines to commits
 
 ## mcp-servers (Server Definitions Repository)
 
