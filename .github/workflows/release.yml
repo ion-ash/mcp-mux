@@ -4,6 +4,11 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Re-publish an existing draft release (e.g. v0.1.1). Leave empty for normal release-please flow.'
+        required: false
+        type: string
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -184,11 +189,31 @@ jobs:
   # ─────────────────────────────────────────────────────────────
   publish-release:
     needs: [release-please, build-release]
-    if: needs.release-please.outputs.release_created == 'true'
+    # Run after a successful build OR when manually re-publishing an existing release
+    if: >-
+      always() &&
+      (
+        needs.build-release.result == 'success' ||
+        (github.event_name == 'workflow_dispatch' && inputs.tag != '')
+      )
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
+      - name: Validate existing release has assets
+        if: inputs.tag != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ASSET_COUNT=$(gh release view "${{ inputs.tag }}" \
+            --repo "${{ github.repository }}" \
+            --json assets --jq '.assets | length')
+          echo "Release ${{ inputs.tag }} has $ASSET_COUNT asset(s)"
+          if [ "$ASSET_COUNT" -eq 0 ]; then
+            echo "::error::Release ${{ inputs.tag }} has no assets to sign"
+            exit 1
+          fi
+
       - name: Import GPG signing key
         run: echo "${{ secrets.APT_GPG_PRIVATE_KEY }}" | gpg --batch --import
 
@@ -196,7 +221,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          TAG="${{ needs.release-please.outputs.tag_name }}"
+          TAG="${{ inputs.tag || needs.release-please.outputs.tag_name }}"
           REPO="${{ github.repository }}"
           mkdir -p artifacts sigs
 
@@ -221,7 +246,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release edit "${{ needs.release-please.outputs.tag_name }}" \
+          gh release edit "${{ inputs.tag || needs.release-please.outputs.tag_name }}" \
             --draft=false \
             --repo "${{ github.repository }}"
 
@@ -230,7 +255,9 @@ jobs:
   # ─────────────────────────────────────────────────────────────
   update-homebrew:
     needs: [release-please, publish-release]
-    if: needs.release-please.outputs.release_created == 'true'
+    if: >-
+      always() &&
+      needs.publish-release.result == 'success'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -239,7 +266,8 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
         run: |
-          VERSION="${{ needs.release-please.outputs.version }}"
+          TAG="${{ inputs.tag || needs.release-please.outputs.tag_name }}"
+          VERSION="${TAG#v}"
           BASE_URL="https://github.com/${{ github.repository }}/releases/download/v${VERSION}"
 
           # Download DMGs and compute SHA256
@@ -308,7 +336,9 @@ jobs:
   # ─────────────────────────────────────────────────────────────
   update-apt-repo:
     needs: [release-please, publish-release]
-    if: needs.release-please.outputs.release_created == 'true'
+    if: >-
+      always() &&
+      needs.publish-release.result == 'success'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -333,10 +363,10 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          VERSION="${{ needs.release-please.outputs.version }}"
+          TAG="${{ inputs.tag || needs.release-please.outputs.tag_name }}"
           mkdir -p artifacts
           # Download all .deb files from the release
-          gh release download "v${VERSION}" --pattern "*.deb" --dir artifacts
+          gh release download "$TAG" --pattern "*.deb" --dir artifacts
 
       - name: Sync existing APT repo from R2
         run: |
