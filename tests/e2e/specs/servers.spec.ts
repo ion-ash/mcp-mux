@@ -90,6 +90,32 @@ test.describe('Server Actions', () => {
   });
 });
 
+test.describe('Server Action Menu', () => {
+  test('should show View Logs and View Definition in action menu', async ({ page }) => {
+    const dashboard = new DashboardPage(page);
+    await dashboard.navigate();
+
+    await page.locator('nav button:has-text("My Servers")').click();
+
+    // Find any server card with a menu button (three-dot / MoreVertical)
+    const menuButtons = page.locator('button[aria-label="More actions"]');
+    const count = await menuButtons.count();
+
+    if (count > 0) {
+      await menuButtons.first().click();
+
+      // The menu should contain View Logs and View Definition items
+      await expect(page.getByRole('menuitem', { name: /View Logs/i })).toBeVisible();
+      await expect(page.getByRole('menuitem', { name: /View Definition/i })).toBeVisible();
+      await expect(page.getByRole('menuitem', { name: /Uninstall/i })).toBeVisible();
+
+      // Close menu
+      await page.keyboard.press('Escape');
+    }
+    // If no servers installed, test passes silently
+  });
+});
+
 test.describe('Server Toast Notifications', () => {
   // Skip in web mode - requires Tauri API for server enable/disable
   test.skip('should show success toast on server enable', async ({ page }) => {

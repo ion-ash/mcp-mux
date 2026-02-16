@@ -22,7 +22,8 @@ import { ServerActionMenu } from './ServerActionMenu';
 import type { ServerViewModel, ServerDefinition, InstalledServerState, InputDefinition } from '../../types/registry';
 import type { ServerFeature } from '@/lib/api/serverFeatures';
 import { listServerFeaturesByServer } from '@/lib/api/serverFeatures';
-import type { ConnectionStatus } from '@/lib/api/serverManager';
+import type { ConnectionStatus, ServerStatusResponse } from '@/lib/api/serverManager';
+import { getServerStatuses as fetchServerStatuses } from '@/lib/api/serverManager';
 import { useViewSpace } from '@/stores';
 import { useServerManager } from '@/hooks/useServerManager';
 import { useGatewayEvents, useDomainEvents } from '@/hooks/useDomainEvents';
@@ -30,6 +31,7 @@ import type { GatewayChangedPayload, ServerChangedPayload } from '@/hooks/useDom
 import type { FeaturesUpdatedEvent } from '@/lib/api/serverManager';
 import { ServerLogViewer } from '@/components/ServerLogViewer';
 import { ConfigEditorModal } from '@/components/ConfigEditorModal';
+import { ServerDefinitionModal } from '@/components/ServerDefinitionModal';
 import { SourceBadge } from '@/components/SourceBadge';
 
 // Helper to merge definitions with states (same as registryStore)
@@ -180,6 +182,9 @@ export function ServersPage() {
   
   // Log viewer state
   const [logViewerServer, setLogViewerServer] = useState<{ id: string; name: string } | null>(null);
+
+  // Definition viewer state
+  const [definitionServer, setDefinitionServer] = useState<{ id: string; name: string } | null>(null);
   
   // Config editor state
   const [editConfigSpace, setEditConfigSpace] = useState<{ id: string; name: string } | null>(null);
@@ -289,20 +294,24 @@ export function ServersPage() {
       setIsLoading(true);
       
       // Use allSettled so we can show installed servers even if registry is offline
-      const [installedResult, gatewayResult, definitionsResult] = await Promise.allSettled([
+      const [installedResult, gatewayResult, definitionsResult, statusesResult] = await Promise.allSettled([
         import('@/lib/api/registry').then((m) => m.listInstalledServers(viewSpace?.id)),
         import('@/lib/api/gateway').then((m) => m.getGatewayStatus(viewSpace?.id)),
         import('@/lib/api/registry').then((m) => m.discoverServers()),
+        viewSpace?.id ? fetchServerStatuses(viewSpace.id) : Promise.resolve({} as Record<string, ServerStatusResponse>),
       ]);
-      
+
       // Extract values, using fallbacks for failures
       const installed = installedResult.status === 'fulfilled' ? installedResult.value : [];
-      const gateway = gatewayResult.status === 'fulfilled' 
-        ? gatewayResult.value 
+      const gateway = gatewayResult.status === 'fulfilled'
+        ? gatewayResult.value
         : { running: false, url: null };
-      const definitions = definitionsResult.status === 'fulfilled' 
-        ? definitionsResult.value 
+      const definitions = definitionsResult.status === 'fulfilled'
+        ? definitionsResult.value
         : [];
+      const runtimeStatuses: Record<string, ServerStatusResponse> = statusesResult.status === 'fulfilled'
+        ? statusesResult.value
+        : {};
 
       
       // Log if registry is offline but we have installed servers
@@ -333,13 +342,27 @@ export function ServersPage() {
         mergedServers = installed.map(state => createOfflineServerViewModel(state));
       }
       
+      // Apply runtime statuses from ServerManager to fix initial connection_status
+      // (mergeDefinitionsWithStates hardcodes 'connecting' for enabled servers)
+      const mapStatus = (s: ConnectionStatus): ServerViewModel['connection_status'] => {
+        if (s === 'refreshing' || s === 'authenticating') return 'connecting';
+        return s;
+      };
+      for (const server of mergedServers) {
+        const runtime = runtimeStatuses[server.id];
+        if (runtime) {
+          server.connection_status = mapStatus(runtime.status);
+          server.last_error = runtime.message || null;
+        }
+      }
+
       // Sort by installation time (newest first)
       mergedServers.sort((a, b) => {
         const dateA = new Date(a.created_at || 0).getTime();
         const dateB = new Date(b.created_at || 0).getTime();
         return dateB - dateA;
       });
-      
+
       setInstalledServers(mergedServers);
       setGatewayRunning(gateway.running);
       setGatewayUrl(gateway.url);
@@ -448,10 +471,12 @@ export function ServersPage() {
     }
     
     // For OAuth servers: show Connect button
-    if (server.auth?.type === 'oauth') {
+    // Check both static definition and runtime oauth_connected flag
+    // (some servers like Sentry declare api_key but actually use OAuth at runtime)
+    if (server.auth?.type === 'oauth' || server.oauth_connected) {
       return 'auth_required';
     }
-    
+
     // Non-OAuth server that's enabled but not yet connected
     return 'connected_auto';
   };
@@ -514,11 +539,15 @@ export function ServersPage() {
     }
 
     setActionLoading(`enable-${server.id}`);
+    // Optimistically mark as enabled so runtime status events (Connecting/Error)
+    // are reflected in the UI immediately instead of showing stale "Enable" button
+    setInstalledServers(prev => prev.map(s =>
+      s.id === server.id ? { ...s, enabled: true } : s
+    ));
     try {
       // Use new ServerManager v2 - handles connection + OAuth in backend
       await enableServerV2(server.id);
-      await loadData();
-      
+
       // Expand server to show features after connection
       setTimeout(() => {
         setExpandedServers(prev => new Set(prev).add(server.id));
@@ -527,6 +556,9 @@ export function ServersPage() {
     } catch (e) {
       showToast(String(e), 'error');
     } finally {
+      // Always refresh server list - the backend sets enabled=true in DB before
+      // attempting connection, so we need to reflect that even on connection failure
+      await loadData();
       setActionLoading(null);
     }
   };
@@ -604,12 +636,13 @@ export function ServersPage() {
       
       // Only enable if requested (from Enable flow)
       if (shouldEnable && !server.enabled) {
+        // Optimistically mark as enabled so runtime status events are reflected
+        setInstalledServers(prev => prev.map(s =>
+          s.id === serverId ? { ...s, enabled: true, missing_required_inputs: false } : s
+        ));
         // Use new ServerManager v2 to enable and connect
         await enableServerV2(serverId);
-        
-        // Reload data AFTER enable to get updated enabled state
-        await loadData();
-        
+
         setTimeout(() => {
           setExpandedServers(prev => new Set(prev).add(serverId));
           loadFeaturesForServer(serverId);
@@ -617,16 +650,15 @@ export function ServersPage() {
       } else if (server.enabled) {
         // If already enabled, trigger reconnect with new config
         await retryConnectionV2(serverId);
-        await loadData();
-      } else {
-        // Just save, don't enable
-        await loadData();
       }
-      
+
       showToast('Configuration saved', 'success');
     } catch (e) {
       showToast(String(e), 'error');
     } finally {
+      // Always refresh server list to reflect DB state (enabled, config changes)
+      // even if connection failed
+      await loadData();
       setActionLoading(null);
     }
   };
@@ -885,15 +917,13 @@ export function ServersPage() {
             return (
               <div
                 key={server.id}
-                className={`bg-[rgb(var(--card))] border border-[rgb(var(--border-subtle))] rounded-xl shadow-sm transition-all ${
-                  !server.enabled && 'opacity-60'
-                }`}
+                className="bg-[rgb(var(--card))] border border-[rgb(var(--border-subtle))] rounded-xl shadow-sm transition-all"
                 data-testid={`installed-server-${server.id}`}
               >
                 {/* Server Header */}
                 <div className="p-4">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
+                    <div className={`flex items-center gap-4 ${!server.enabled ? 'opacity-60' : ''}`}>
                       {/* Expand/Collapse button for connected servers */}
                       {isConnected && (
                         <button
@@ -1002,7 +1032,12 @@ export function ServersPage() {
                           <div className="flex items-center gap-2 mt-2 px-3 py-2 rounded-lg text-xs bg-[rgb(var(--error))]/10 text-[rgb(var(--error))]">
                             <span className="font-medium">Connection error</span>
                             <span className="text-[rgb(var(--muted))]">·</span>
-                            <span className="text-[rgb(var(--muted))]">View logs for details</span>
+                            <button
+                              onClick={() => setLogViewerServer({ id: server.id, name: server.name })}
+                              className="text-[rgb(var(--muted))] hover:text-[rgb(var(--foreground))] underline cursor-pointer transition-colors"
+                            >
+                              View logs for details
+                            </button>
                           </div>
                         )}
                       </div>
@@ -1015,7 +1050,7 @@ export function ServersPage() {
                         <button
                           onClick={() => handleEnableClick(server)}
                           disabled={enableLoading}
-                          className="px-4 py-2 text-sm rounded-lg bg-[rgb(var(--primary))] text-[rgb(var(--primary-foreground))] hover:bg-[rgb(var(--primary-hover))] transition-colors disabled:opacity-50"
+                          className="px-4 py-2 text-sm font-medium rounded-lg bg-[rgb(var(--success))] text-white hover:bg-[rgb(var(--success))]/80 shadow-sm transition-colors disabled:opacity-50"
                           data-testid={`enable-server-${server.id}`}
                         >
                           {enableLoading ? 'Enabling...' : 'Enable'}
@@ -1026,7 +1061,7 @@ export function ServersPage() {
                         <button
                           onClick={() => handleConfigureClick(server)}
                           disabled={configLoading}
-                          className="px-4 py-2 text-sm rounded-lg bg-[rgb(var(--warning))] text-white hover:bg-[rgb(var(--warning))]/90 transition-colors disabled:opacity-50"
+                          className="px-4 py-2 text-sm font-medium rounded-lg bg-[rgb(var(--warning))] text-white hover:bg-[rgb(var(--warning))]/80 shadow-sm transition-colors disabled:opacity-50"
                         >
                           {configLoading ? 'Saving...' : 'Configure'}
                         </button>
@@ -1067,7 +1102,7 @@ export function ServersPage() {
                         <button
                           onClick={() => handleConnect(server)}
                           disabled={connectLoading}
-                          className="px-4 py-2 text-sm rounded-lg bg-[rgb(var(--success))] text-white hover:bg-[rgb(var(--success))]/90 transition-colors disabled:opacity-50"
+                          className="px-4 py-2 text-sm font-medium rounded-lg bg-[rgb(var(--success))] text-white hover:bg-[rgb(var(--success))]/80 shadow-sm transition-colors disabled:opacity-50"
                         >
                           {connectLoading ? 'Connecting...' : hasConnectedBefore(server.id) ? 'Reconnect' : 'Connect'}
                         </button>
@@ -1089,7 +1124,7 @@ export function ServersPage() {
                         <button
                           onClick={() => handleRetry(server)}
                           disabled={retryLoading}
-                          className="px-4 py-2 text-sm rounded-lg bg-[rgb(var(--error))] text-white hover:bg-[rgb(var(--error))]/90 transition-colors disabled:opacity-50"
+                          className="px-4 py-2 text-sm font-medium rounded-lg bg-[rgb(var(--error))] text-white hover:bg-[rgb(var(--error))]/80 shadow-sm transition-colors disabled:opacity-50"
                         >
                           {retryLoading ? 'Retrying...' : hasConnectedBefore(server.id) ? 'Reconnect' : 'Retry'}
                         </button>
@@ -1124,8 +1159,8 @@ export function ServersPage() {
                         onRefresh={() => handleRefresh(server)}
                         onReconnect={() => handleReconnect(server)}
                         onViewLogs={() => setLogViewerServer({ id: server.id, name: server.name })}
+                        onViewDefinition={() => setDefinitionServer({ id: server.id, name: server.name })}
                         onUninstall={() => handleUninstall(server)}
-                        disabled={!!actionLoading}
                       />
                     </div>
                   </div>
@@ -1583,6 +1618,17 @@ export function ServersPage() {
         />
       )}
       
+      {/* Definition Viewer Modal */}
+      {definitionServer && (() => {
+        const server = installedServers.find(s => s.id === definitionServer.id);
+        return server ? (
+          <ServerDefinitionModal
+            server={server}
+            onClose={() => setDefinitionServer(null)}
+          />
+        ) : null;
+      })()}
+
       {/* Config Editor Modal */}
       {editConfigSpace && (
         <ConfigEditorModal
