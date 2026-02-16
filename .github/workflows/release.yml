@@ -157,11 +157,13 @@ jobs:
           echo "identity=${{ secrets.APPLE_SIGNING_IDENTITY }}" >> "$GITHUB_OUTPUT"
           echo "cert_ok=true" >> "$GITHUB_OUTPUT"
 
-      # IMPORTANT: Do NOT pass APPLE_CERTIFICATE to tauri-action.
-      # We handle certificate import ourselves above. Tauri's bundler
-      # treats empty strings as "certificate present" and tries to import,
-      # which fails. By omitting the var entirely, the bundler skips import
-      # and uses the identity from APPLE_SIGNING_IDENTITY (or ad-hoc).
+      # IMPORTANT: Do NOT pass APPLE_CERTIFICATE, APPLE_ID, APPLE_PASSWORD,
+      # or APPLE_TEAM_ID to tauri-action. Tauri's bundler uses var_os() which
+      # treats empty strings as "present" and attempts certificate import /
+      # notarization even when values are empty, causing build failures.
+      # We handle cert import ourselves above and only pass APPLE_SIGNING_IDENTITY.
+      # When a valid Apple Developer certificate is configured, add notarization
+      # env vars back here (APPLE_ID, APPLE_PASSWORD, APPLE_TEAM_ID).
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
         env:
@@ -170,10 +172,6 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
           PKG_CONFIG_PATH: /usr/lib/x86_64-linux-gnu/pkgconfig:/usr/lib/pkgconfig:/usr/share/pkgconfig
           APPLE_SIGNING_IDENTITY: ${{ steps.apple-cert.outputs.identity }}
-          # Notarization only when cert import succeeded
-          APPLE_ID: ${{ steps.apple-cert.outputs.cert_ok == 'true' && secrets.APPLE_ID || '' }}
-          APPLE_PASSWORD: ${{ steps.apple-cert.outputs.cert_ok == 'true' && secrets.APPLE_PASSWORD || '' }}
-          APPLE_TEAM_ID: ${{ steps.apple-cert.outputs.cert_ok == 'true' && secrets.APPLE_TEAM_ID || '' }}
         with:
           projectPath: apps/desktop
           # Upload to the existing draft release
