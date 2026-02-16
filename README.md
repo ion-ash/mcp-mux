@@ -2,6 +2,10 @@
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
 [![GitHub release](https://img.shields.io/github/v/release/mcpmux/mcp-mux)](https://github.com/mcpmux/mcp-mux/releases)
+[![CI](https://github.com/mcpmux/mcp-mux/actions/workflows/ci.yml/badge.svg)](https://github.com/mcpmux/mcp-mux/actions/workflows/ci.yml)
+![Windows](https://img.shields.io/badge/Windows-0078D6?logo=windows&logoColor=white)
+![macOS](https://img.shields.io/badge/macOS-000000?logo=apple&logoColor=white)
+![Linux](https://img.shields.io/badge/Linux-FCC624?logo=linux&logoColor=black)
 
 ### Configure your MCP servers once. Connect every AI client.
 
