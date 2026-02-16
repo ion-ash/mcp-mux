@@ -119,9 +119,13 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      # Import Apple certificate for macOS signing (only when Developer ID is available)
+      # Import Apple certificate for macOS signing. Outputs cert_ok=true
+      # only when the certificate was successfully imported into keychain.
+      # If import fails, tauri-action gets no APPLE_CERTIFICATE, forcing
+      # ad-hoc signing instead of failing the build.
       - name: Import Apple certificate
         if: matrix.os == 'macos-latest' || matrix.os == 'macos-15'
+        id: apple-cert
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
@@ -129,40 +133,28 @@ jobs:
         run: |
           if [ -z "$APPLE_CERTIFICATE" ] || [ -z "$KEYCHAIN_PASSWORD" ]; then
             echo "No Apple certificate configured — skipping import"
+            echo "cert_ok=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           echo "$APPLE_CERTIFICATE" | base64 --decode > certificate.p12
-          # Validate the decoded file is a real PKCS#12 before attempting import
           if [ ! -s certificate.p12 ]; then
             echo "Certificate decode produced empty file — skipping import"
             rm -f certificate.p12
+            echo "cert_ok=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           security create-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
           security default-keychain -s build.keychain
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
           if ! security import certificate.p12 -k build.keychain -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign; then
-            echo "⚠ Certificate import failed — falling back to ad-hoc signing"
+            echo "Certificate import failed — falling back to ad-hoc signing"
             rm -f certificate.p12
+            echo "cert_ok=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" build.keychain
           rm certificate.p12
-
-      # Determine macOS signing identity: Developer ID if available, ad-hoc (-) otherwise
-      - name: Resolve macOS signing identity
-        if: matrix.os == 'macos-latest' || matrix.os == 'macos-15'
-        id: macos-signing
-        env:
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-        run: |
-          if [ -n "$APPLE_SIGNING_IDENTITY" ]; then
-            echo "identity=$APPLE_SIGNING_IDENTITY" >> "$GITHUB_OUTPUT"
-            echo "Using Developer ID signing"
-          else
-            echo "identity=-" >> "$GITHUB_OUTPUT"
-            echo "Using ad-hoc signing (no Apple Developer ID)"
-          fi
+          echo "cert_ok=true" >> "$GITHUB_OUTPUT"
 
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
@@ -171,14 +163,15 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
           PKG_CONFIG_PATH: /usr/lib/x86_64-linux-gnu/pkgconfig:/usr/lib/pkgconfig:/usr/share/pkgconfig
-          # macOS signing — falls back to ad-hoc (-) when no Apple Developer cert
-          APPLE_SIGNING_IDENTITY: ${{ steps.macos-signing.outputs.identity }}
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          # macOS notarization (only works with Developer ID)
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          # Only pass Apple certificate/signing to tauri-action when import succeeded.
+          # When cert_ok is false, these are empty strings — tauri falls back to ad-hoc signing.
+          APPLE_SIGNING_IDENTITY: ${{ steps.apple-cert.outputs.cert_ok == 'true' && secrets.APPLE_SIGNING_IDENTITY || '' }}
+          APPLE_CERTIFICATE: ${{ steps.apple-cert.outputs.cert_ok == 'true' && secrets.APPLE_CERTIFICATE || '' }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ steps.apple-cert.outputs.cert_ok == 'true' && secrets.APPLE_CERTIFICATE_PASSWORD || '' }}
+          # macOS notarization (only works with Developer ID cert)
+          APPLE_ID: ${{ steps.apple-cert.outputs.cert_ok == 'true' && secrets.APPLE_ID || '' }}
+          APPLE_PASSWORD: ${{ steps.apple-cert.outputs.cert_ok == 'true' && secrets.APPLE_PASSWORD || '' }}
+          APPLE_TEAM_ID: ${{ steps.apple-cert.outputs.cert_ok == 'true' && secrets.APPLE_TEAM_ID || '' }}
         with:
           projectPath: apps/desktop
           # Upload to the existing draft release
