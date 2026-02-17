@@ -286,27 +286,43 @@ jobs:
           # Download DMGs and compute SHA256
           echo "Downloading macOS DMGs..."
           curl -fSL "${BASE_URL}/McpMux_${VERSION}_aarch64.dmg" -o arm64.dmg || { echo "ARM64 DMG not found — skipping Homebrew update"; exit 0; }
-          curl -fSL "${BASE_URL}/McpMux_${VERSION}_x64.dmg" -o x64.dmg || { echo "x64 DMG not found — skipping Homebrew update"; exit 0; }
-
           SHA_ARM64=$(shasum -a 256 arm64.dmg | cut -d' ' -f1)
-          SHA_X64=$(shasum -a 256 x64.dmg | cut -d' ' -f1)
           echo "ARM64 SHA256: $SHA_ARM64"
-          echo "x64   SHA256: $SHA_X64"
+
+          # x64 DMG is optional (macos-latest runs on ARM; cross-compiled targets don't produce DMGs)
+          HAS_X64=false
+          if curl -fSL "${BASE_URL}/McpMux_${VERSION}_x64.dmg" -o x64.dmg 2>/dev/null; then
+            SHA_X64=$(shasum -a 256 x64.dmg | cut -d' ' -f1)
+            echo "x64   SHA256: $SHA_X64"
+            HAS_X64=true
+          else
+            echo "x64 DMG not found — generating ARM-only cask"
+          fi
 
           # Clone the tap repo and update the cask
           git clone https://x-access-token:${GH_TOKEN}@github.com/mcpmux/homebrew-tap.git tap
 
-          # Generate cask file (Ruby heredoc content with shell variable expansion)
+          # Generate cask file
           CASK_FILE="tap/Casks/mcpmux.rb"
           {
             echo 'cask "mcpmux" do'
-            echo '  arch arm: "aarch64", intel: "x64"'
+            if [ "$HAS_X64" = true ]; then
+              echo '  arch arm: "aarch64", intel: "x64"'
+            fi
             echo ''
             echo "  version \"${VERSION}\""
-            echo "  sha256 arm:   \"${SHA_ARM64}\","
-            echo "         intel: \"${SHA_X64}\""
+            if [ "$HAS_X64" = true ]; then
+              echo "  sha256 arm:   \"${SHA_ARM64}\","
+              echo "         intel: \"${SHA_X64}\""
+            else
+              echo "  sha256 \"${SHA_ARM64}\""
+            fi
             echo ''
-            echo '  url "https://github.com/mcpmux/mcp-mux/releases/download/v#{version}/McpMux_#{version}_#{arch}.dmg",'
+            if [ "$HAS_X64" = true ]; then
+              echo '  url "https://github.com/mcpmux/mcp-mux/releases/download/v#{version}/McpMux_#{version}_#{arch}.dmg",'
+            else
+              echo '  url "https://github.com/mcpmux/mcp-mux/releases/download/v#{version}/McpMux_#{version}_aarch64.dmg",'
+            fi
             echo '      verified: "github.com/mcpmux/mcp-mux/"'
             echo ''
             echo '  name "McpMux"'
@@ -314,6 +330,9 @@ jobs:
             echo '  homepage "https://mcpmux.com"'
             echo ''
             echo '  depends_on macos: ">= :high_sierra"'
+            if [ "$HAS_X64" != true ]; then
+              echo '  depends_on arch: :arm64'
+            fi
             echo ''
             echo '  livecheck do'
             echo '    url "https://github.com/mcpmux/mcp-mux/releases/latest"'
