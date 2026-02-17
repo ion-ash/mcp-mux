@@ -264,7 +264,7 @@ jobs:
             --repo "${{ github.repository }}"
 
   # ─────────────────────────────────────────────────────────────
-  # Update Homebrew Tap: Push new version to homebrew-mcpmux
+  # Update Homebrew Tap: Push new version to homebrew-tap
   # ─────────────────────────────────────────────────────────────
   update-homebrew:
     needs: [release-please, publish-release]
@@ -294,7 +294,7 @@ jobs:
           echo "x64   SHA256: $SHA_X64"
 
           # Clone the tap repo and update the cask
-          git clone https://x-access-token:${GH_TOKEN}@github.com/mcpmux/homebrew-mcpmux.git tap
+          git clone https://x-access-token:${GH_TOKEN}@github.com/mcpmux/homebrew-tap.git tap
 
           # Generate cask file (Ruby heredoc content with shell variable expansion)
           CASK_FILE="tap/Casks/mcpmux.rb"
