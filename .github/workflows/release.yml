@@ -330,7 +330,6 @@ jobs:
             echo '  desc "Unified MCP gateway and manager for AI clients"'
             echo '  homepage "https://mcpmux.com"'
             echo ''
-            echo '  depends_on macos: ">= :high_sierra"'
             if [ "$HAS_X64" != true ]; then
               echo '  depends_on arch: :arm64'
             fi
