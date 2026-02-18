@@ -29,10 +29,7 @@ pub struct McpMuxGatewayHandler {
 }
 
 impl McpMuxGatewayHandler {
-    pub fn new(
-        services: Arc<ServiceContainer>,
-        notification_bridge: Arc<MCPNotifier>,
-    ) -> Self {
+    pub fn new(services: Arc<ServiceContainer>, notification_bridge: Arc<MCPNotifier>) -> Self {
         Self {
             services,
             notification_bridge,
