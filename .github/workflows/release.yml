@@ -88,7 +88,7 @@ jobs:
           - os: macos-latest
             target: aarch64-apple-darwin
             artifact: macos-arm
-          - os: macos-latest
+          - os: macos-13
             target: x86_64-apple-darwin
             artifact: macos-intel
 
@@ -129,7 +129,7 @@ jobs:
       # strings as present (Some("")), so we must completely omit the env var.
       # Instead we import the cert here and only pass APPLE_SIGNING_IDENTITY.
       - name: Import Apple certificate
-        if: matrix.os == 'macos-latest' || matrix.os == 'macos-15'
+        if: runner.os == 'macOS'
         id: apple-cert
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
@@ -182,6 +182,7 @@ jobs:
           # Upload to the existing draft release
           releaseId: ${{ needs.release-please.outputs.release_id }}
           updaterJsonKeepUniversal: true
+          args: --target ${{ matrix.target }}
 
   # ─────────────────────────────────────────────────────────────
   # Publish Release: Flip draft → published after all artifacts
@@ -289,7 +290,7 @@ jobs:
           SHA_ARM64=$(shasum -a 256 arm64.dmg | cut -d' ' -f1)
           echo "ARM64 SHA256: $SHA_ARM64"
 
-          # x64 DMG is optional (macos-latest runs on ARM; cross-compiled targets don't produce DMGs)
+          # x64 DMG (built on macos-13 Intel runner)
           HAS_X64=false
           if curl -fSL "${BASE_URL}/McpMux_${VERSION}_x64.dmg" -o x64.dmg 2>/dev/null; then
             SHA_X64=$(shasum -a 256 x64.dmg | cut -d' ' -f1)
