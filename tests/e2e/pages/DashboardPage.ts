@@ -1,4 +1,4 @@
-import { Page, Locator, expect } from '@playwright/test';
+import { Page, Locator } from '@playwright/test';
 import { BasePage } from './BasePage';
 
 /**
@@ -12,7 +12,8 @@ export class DashboardPage extends BasePage {
   readonly featureSetsCard: Locator;
   readonly clientsCard: Locator;
   readonly activeSpaceCard: Locator;
-  readonly configCopyButton: Locator;
+  readonly connectIDEsSection: Locator;
+  readonly clientGrid: Locator;
 
   constructor(page: Page) {
     super(page);
@@ -23,7 +24,8 @@ export class DashboardPage extends BasePage {
     this.featureSetsCard = page.locator('text=FeatureSets').first();
     this.clientsCard = page.locator('text=Clients').first();
     this.activeSpaceCard = page.locator('text=Active Space').first();
-    this.configCopyButton = page.getByRole('button', { name: /Copy/ });
+    this.connectIDEsSection = page.locator('text=Connect Your IDEs');
+    this.clientGrid = page.locator('[data-testid="client-grid"]');
   }
 
   async navigate() {
@@ -49,6 +51,8 @@ export class DashboardPage extends BasePage {
   }
 
   async copyConfig() {
-    await this.configCopyButton.click();
+    // Open JSON config popover and click copy
+    await this.page.locator('[data-testid="client-icon-copy-config"]').click();
+    await this.page.locator('[data-testid="copy-config-btn"]').click();
   }
 }

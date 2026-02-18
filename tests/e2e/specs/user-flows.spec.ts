@@ -120,15 +120,15 @@ test.describe('Dashboard Interactions', () => {
     await expect(dashboard.activeSpaceCard).toBeVisible();
   });
 
-  test('should show connection config section', async ({ page }) => {
+  test('should show connect IDEs section', async ({ page }) => {
     const dashboard = new DashboardPage(page);
     await dashboard.navigate();
-    
-    // Config section should be present
-    await expect(page.locator('text=Connect Your Client')).toBeVisible();
-    
-    // Config code block should be present
-    await expect(page.locator('pre')).toBeVisible();
+
+    // Connect IDEs section should be present
+    await expect(page.locator('text=Connect Your IDEs')).toBeVisible();
+
+    // Client grid should be present
+    await expect(page.locator('[data-testid="client-grid"]')).toBeVisible();
   });
 });
 
