@@ -76,12 +76,12 @@ describe('Gateway Status - Dashboard', () => {
     expect(hasGatewayUrl).toBe(true);
   });
 
-  it('TC-GW-007: Copy client config button exists', async () => {
-    const copyBtn = await byTestId('copy-config-btn');
-    const isDisplayed = await copyBtn.isDisplayed().catch(() => false);
-    
-    await browser.saveScreenshot('./tests/e2e/screenshots/gw-07-copy-config.png');
-    
+  it('TC-GW-007: Connect IDEs client grid exists', async () => {
+    const clientGrid = await byTestId('client-grid');
+    const isDisplayed = await clientGrid.isDisplayed().catch(() => false);
+
+    await browser.saveScreenshot('./tests/e2e/screenshots/gw-07-connect-ides.png');
+
     expect(isDisplayed).toBe(true);
   });
 
