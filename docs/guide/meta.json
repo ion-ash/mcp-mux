@@ -1,0 +1,17 @@
+{
+  "root": true,
+  "pages": [
+    "---Getting Started---",
+    "index",
+    "getting-started",
+    "---Core Concepts---",
+    "spaces",
+    "feature-sets",
+    "clients",
+    "servers",
+    "---Advanced---",
+    "gateway",
+    "server-definitions",
+    "security"
+  ]
+}
