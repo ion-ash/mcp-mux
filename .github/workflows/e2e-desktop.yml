@@ -127,6 +127,26 @@ jobs:
             xvfb-run --auto-servernum pnpm test:e2e
           '
 
+      - name: Install matching EdgeDriver (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          # Tauri uses the WebView2 runtime, not Edge directly.
+          # msedgedriver must match the WebView2 runtime version, not the Edge browser version.
+          $wv2Key = 'HKLM:\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}'
+          if (-not (Test-Path $wv2Key)) { $wv2Key = 'HKLM:\SOFTWARE\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}' }
+          $wv2Version = (Get-ItemProperty $wv2Key).pv
+          Write-Host "WebView2 runtime version: $wv2Version"
+          $driverUrl = "https://msedgewebdriverstorage.blob.core.windows.net/edgewebdriver/$wv2Version/edgedriver_win64.zip"
+          $zipPath = "$env:TEMP\edgedriver.zip"
+          $extractDir = "$env:TEMP\edgedriver"
+          Invoke-WebRequest -Uri $driverUrl -OutFile $zipPath
+          Expand-Archive -Path $zipPath -DestinationPath $extractDir -Force
+          $driverDir = "$extractDir\edgedriver_win64"
+          if (-not (Test-Path "$driverDir\msedgedriver.exe")) { $driverDir = $extractDir }
+          Write-Host "EdgeDriver path: $driverDir"
+          echo "$driverDir" | Out-File -Append -Encoding utf8 $env:GITHUB_PATH
+
       - name: Run desktop E2E tests (Windows)
         if: matrix.os == 'windows-latest'
         run: pnpm test:e2e
