@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { check, Update } from '@tauri-apps/plugin-updater';
 import { relaunch } from '@tauri-apps/plugin-process';
 import {
@@ -9,7 +9,7 @@ import {
   CardDescription,
   CardContent,
 } from '@mcpmux/ui';
-import { Download, Loader2, CheckCircle, AlertCircle, RefreshCw } from 'lucide-react';
+import { Download, Loader2, CheckCircle, AlertCircle, RefreshCw, RotateCcw } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/core';
 
 interface DownloadEvent {
@@ -27,6 +27,7 @@ export function UpdateChecker() {
   const [downloadProgress, setDownloadProgress] = useState({ downloaded: 0, total: 0 });
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [currentVersion, setCurrentVersion] = useState<string>('');
+  const [bundleVersionMismatch, setBundleVersionMismatch] = useState<string | null>(null);
 
   // Load current version on mount
   useState(() => {
@@ -34,6 +35,23 @@ export function UpdateChecker() {
       .then(setCurrentVersion)
       .catch((err) => console.error('Failed to get version:', err));
   });
+
+  // Check if the on-disk bundle version differs from the running version (Homebrew Cask upgrades)
+  useEffect(() => {
+    if (!currentVersion) return;
+    invoke<string | null>('get_bundle_version')
+      .then((bundleVersion) => {
+        if (bundleVersion && bundleVersion !== currentVersion) {
+          console.log(
+            `[Updater] Bundle version mismatch: running=${currentVersion}, on-disk=${bundleVersion}`
+          );
+          setBundleVersionMismatch(bundleVersion);
+        }
+      })
+      .catch(() => {
+        // Expected to return null on non-macOS platforms
+      });
+  }, [currentVersion]);
 
   const checkForUpdates = async () => {
     setChecking(true);
@@ -149,8 +167,32 @@ export function UpdateChecker() {
             </p>
           </div>
 
+          {/* Bundle version mismatch (e.g., after brew upgrade) */}
+          {bundleVersionMismatch && (
+            <div
+              className="border rounded-lg p-4 space-y-3 bg-surface-secondary"
+              data-testid="restart-required"
+            >
+              <div>
+                <p className="font-medium text-lg">Restart Required</p>
+                <p className="text-sm text-[rgb(var(--muted))] mt-1">
+                  Version v{bundleVersionMismatch} has been installed on disk, but you are still
+                  running v{currentVersion}. Restart to apply the update.
+                </p>
+              </div>
+              <Button
+                onClick={() => relaunch()}
+                variant="primary"
+                data-testid="restart-now-btn"
+              >
+                <RotateCcw className="h-4 w-4 mr-2" />
+                Restart Now
+              </Button>
+            </div>
+          )}
+
           {/* Check Button */}
-          {!updateInfo && (
+          {!updateInfo && !bundleVersionMismatch && (
             <Button
               onClick={checkForUpdates}
               disabled={checking || downloading}

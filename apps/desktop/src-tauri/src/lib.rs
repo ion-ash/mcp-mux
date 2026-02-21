@@ -122,10 +122,46 @@ fn init_tracing() -> tracing_appender::non_blocking::WorkerGuard {
     guard
 }
 
-/// Get app version
+/// Get app version (compiled into the binary)
 #[tauri::command]
 fn get_version() -> String {
     env!("CARGO_PKG_VERSION").to_string()
+}
+
+/// Get the on-disk bundle version (macOS only).
+///
+/// After a Homebrew Cask upgrade, the `.app` bundle on disk has the new version
+/// but the running process still has the old compiled-in version. Comparing
+/// `get_version()` with `get_bundle_version()` lets the frontend detect this
+/// mismatch and prompt the user to restart.
+#[tauri::command]
+fn get_bundle_version() -> Option<String> {
+    #[cfg(target_os = "macos")]
+    {
+        // Read CFBundleShortVersionString from the running app's Info.plist
+        let exe = std::env::current_exe().ok()?;
+        // exe is typically: Foo.app/Contents/MacOS/Foo
+        let contents_dir = exe.parent()?.parent()?;
+        let plist_path = contents_dir.join("Info.plist");
+        let plist = std::fs::read_to_string(&plist_path).ok()?;
+
+        // Simple extraction — avoids adding a plist parsing dependency.
+        // Looks for <key>CFBundleShortVersionString</key>\n<string>X.Y.Z</string>
+        let key = "CFBundleShortVersionString";
+        let key_pos = plist.find(key)?;
+        let after_key = &plist[key_pos + key.len()..];
+        let string_start = after_key.find("<string>")? + "<string>".len();
+        let string_end = after_key[string_start..].find("</string>")?;
+        Some(
+            after_key[string_start..string_start + string_end]
+                .trim()
+                .to_string(),
+        )
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        None
+    }
 }
 
 /// Get the path to the logs directory
@@ -195,6 +231,7 @@ pub fn run() {
             Some(vec!["--hidden"]), // Start minimized to tray
         ))
         .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_single_instance::init(|app, args, cwd| {
             // This callback is called when a second instance is launched
             info!("Second instance detected, focusing existing window");
@@ -691,6 +728,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             get_version,
+            get_bundle_version,
             // Space commands
             commands::list_spaces,
             commands::get_space,
