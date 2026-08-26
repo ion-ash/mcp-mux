@@ -45,6 +45,26 @@ export function folderName(root: string): string {
  * Bindings on other machines (or scopes) that can seed a new create-from-live row.
  * Same folder name is enough; identical absolute paths count when machine differs.
  */
+/**
+ * Grouping key for cross-machine project cards. Manual link wins over git remote.
+ */
+export function projectKey(binding: WorkspaceBinding): string | null {
+  return binding.project_link_id || binding.git_remote_url || null;
+}
+
+/**
+ * Path-type bindings the user can manually link to, excluding `excludeId`.
+ */
+export function findLinkableBindings(
+  allBindings: WorkspaceBinding[],
+  excludeId: string | undefined,
+): WorkspaceBinding[] {
+  return allBindings.filter((binding) => {
+    if (binding.id === excludeId) return false;
+    return binding.binding_type !== 'id';
+  });
+}
+
 export function findAdoptableSiblingBindings(
   allBindings: WorkspaceBinding[],
   workspaceRoot: string,

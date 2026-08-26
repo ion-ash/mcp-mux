@@ -84,7 +84,7 @@ import {
 } from '@/stores';
 import type { Space } from '@/lib/api/spaces';
 import { FormField } from './workspace-binding-form.component';
-import { formatFsList } from './workspace-binding-form.helpers';
+import { formatFsList, projectKey } from './workspace-binding-form.helpers';
 import { EmojiPickerButton } from '@/components/emoji-picker-button.component';
 import { useViewerIdentity } from '@/hooks/use-viewer-identity.hook';
 
@@ -110,10 +110,58 @@ interface Entry {
   id: string;
   kind: EntryKind;
   root: string;
+  /** Every distinct root folded into this card (1 unless project-linked). */
+  roots: string[];
   bindings: WorkspaceBinding[];
   isLive: boolean;
   /** Id-type bindings route by OAuth/API client id, not folder path. */
   isClientMapping?: boolean;
+}
+
+const ENTRY_KIND_RANK: Record<EntryKind, number> = {
+  'unmapped-live': 0,
+  'live-elsewhere': 1,
+  'mapped-live': 2,
+  'mapped-offline': 3,
+};
+
+/**
+ * Fold root-level entries that share a project key into one card.
+ */
+function mergeByProjectKey(rootEntries: Entry[]): Entry[] {
+  const byKey = new Map<string, Entry[]>();
+  const standalone: Entry[] = [];
+  for (const entry of rootEntries) {
+    const key = entry.bindings.map(projectKey).find((k) => k != null) ?? null;
+    if (key == null) {
+      standalone.push({ ...entry, roots: entry.roots.length > 0 ? entry.roots : [entry.root] });
+      continue;
+    }
+    const group = byKey.get(key) ?? [];
+    group.push(entry);
+    byKey.set(key, group);
+  }
+  const merged = [...byKey.values()].map((group) => {
+    if (group.length === 1) {
+      const only = group[0];
+      return { ...only, roots: only.roots.length > 0 ? only.roots : [only.root] };
+    }
+    const primary =
+      group.find((e) => e.bindings.some((b) => b.machine_id == null)) ?? group[0];
+    const roots = [...new Set(group.flatMap((e) => (e.roots.length > 0 ? e.roots : [e.root])))];
+    const kinds = group.map((e) => e.kind);
+    const kind = kinds.reduce((best, next) =>
+      ENTRY_KIND_RANK[next] < ENTRY_KIND_RANK[best] ? next : best,
+    );
+    return {
+      ...primary,
+      roots,
+      bindings: group.flatMap((e) => e.bindings),
+      isLive: group.some((e) => e.isLive),
+      kind,
+    };
+  });
+  return [...standalone, ...merged];
 }
 
 /**
@@ -278,6 +326,7 @@ export function WorkspacesPage() {
         id: '',
         kind: 'unmapped-live',
         root,
+        roots: [root],
         bindings: binds,
         isLive: true,
       });
@@ -285,6 +334,7 @@ export function WorkspacesPage() {
         id: primary?.id ?? `live:${root}`,
         kind: 'unmapped-live',
         root,
+        roots: [root],
         bindings: binds,
         isLive: true,
       };
@@ -305,6 +355,7 @@ export function WorkspacesPage() {
         id: '',
         kind: 'mapped-offline',
         root: b.workspace_root,
+        roots: [b.workspace_root],
         bindings: binds,
         isLive: false,
       });
@@ -312,6 +363,7 @@ export function WorkspacesPage() {
         id: primary!.id,
         kind: 'mapped-offline',
         root: b.workspace_root,
+        roots: [b.workspace_root],
         bindings: binds,
         isLive: false,
       });
@@ -325,19 +377,14 @@ export function WorkspacesPage() {
         id: b.id,
         kind: 'mapped-offline',
         root: b.workspace_root,
+        roots: [b.workspace_root],
         bindings: [b],
         isLive: false,
         isClientMapping: true,
       });
     }
-    const rank: Record<EntryKind, number> = {
-      'unmapped-live': 0,
-      'live-elsewhere': 1,
-      'mapped-live': 2,
-      'mapped-offline': 3,
-    };
-    return list.sort((a, b) => {
-      const o = rank[a.kind] - rank[b.kind];
+    return mergeByProjectKey(list).sort((a, b) => {
+      const o = ENTRY_KIND_RANK[a.kind] - ENTRY_KIND_RANK[b.kind];
       return o !== 0 ? o : a.root.localeCompare(b.root);
     });
   }, [bindings, bindingsByRoot, reportedRoots, localMachineId, viewerMachineId]);
@@ -377,6 +424,7 @@ export function WorkspacesPage() {
       const label = binding?.label?.toLowerCase() ?? '';
       return (
         e.root.toLowerCase().includes(q) ||
+        e.roots.some((root) => root.toLowerCase().includes(q)) ||
         label.includes(q) ||
         spaceName.toLowerCase().includes(q) ||
         fsNames.toLowerCase().includes(q)
@@ -786,6 +834,8 @@ interface EntryCardRoutingRow {
   ghost?: boolean;
   machine?: Machine;
   machineLabel: string;
+  /** Shown under the machine when the card spans more than one path. */
+  root?: string;
   fsName: string;
   spaceName: string | undefined;
   clickable: boolean;
@@ -868,12 +918,19 @@ function EntryCardRoutingTable({
               ].join(' ')}
               {...rowProps}
             >
-              <span className={`${cellCls} truncate whitespace-nowrap`} title={row.machineLabel}>
-                <span className="inline-flex max-w-full items-center gap-1">
-                  {row.machine?.icon ? (
-                    <span className="shrink-0 text-[11px] leading-none">{row.machine.icon}</span>
+              <span className={`${cellCls} whitespace-nowrap`} title={row.root ?? row.machineLabel}>
+                <span className="inline-flex max-w-full flex-col">
+                  <span className="inline-flex max-w-full items-center gap-1">
+                    {row.machine?.icon ? (
+                      <span className="shrink-0 text-[11px] leading-none">{row.machine.icon}</span>
+                    ) : null}
+                    <span className="truncate">{row.machineLabel}</span>
+                  </span>
+                  {row.root ? (
+                    <span className="truncate font-mono text-[10px] text-[rgb(var(--muted))]">
+                      {row.root}
+                    </span>
                   ) : null}
-                  <span className="truncate">{row.machineLabel}</span>
                 </span>
               </span>
               <span
@@ -911,6 +968,7 @@ function buildEntryRoutingRows(
   fsById: Map<string, FeatureSet>,
   t: TFunction<['workspaces', 'common']>,
 ): EntryCardRoutingRow[] {
+  const showPath = entry.roots.length > 1;
   const rows: EntryCardRoutingRow[] = bindings.map((rowBinding) => {
     const rowMachine = rowBinding.machine_id
       ? machinesById.get(rowBinding.machine_id)
@@ -920,6 +978,7 @@ function buildEntryRoutingRows(
       bindingId: rowBinding.id,
       machine: rowMachine,
       machineLabel: machineBindingLabel(rowBinding, machinesById, t),
+      root: showPath ? rowBinding.workspace_root : undefined,
       fsName: formatFsList(
         rowBinding.feature_set_ids.map((id) => fsById.get(id)?.name ?? id),
       ),
@@ -1101,12 +1160,24 @@ function EntryCard({
             </p>
             <p
               className={`mt-0.5 line-clamp-2 min-h-[2rem] font-mono text-xs leading-snug text-[rgb(var(--muted))] ${
-                hasLabel || entry.isClientMapping ? 'break-all' : 'invisible'
+                hasLabel || entry.isClientMapping || entry.roots.length > 1
+                  ? 'break-all'
+                  : 'invisible'
               }`}
-              title={hasLabel || entry.isClientMapping ? entry.root : undefined}
-              aria-hidden={!hasLabel && !entry.isClientMapping}
+              title={
+                entry.roots.length > 1
+                  ? entry.roots.join(', ')
+                  : hasLabel || entry.isClientMapping
+                    ? entry.root
+                    : undefined
+              }
+              aria-hidden={!hasLabel && !entry.isClientMapping && entry.roots.length <= 1}
             >
-              {hasLabel || entry.isClientMapping ? entry.root : '\u00A0'}
+              {entry.roots.length > 1
+                ? t('card.locations', { count: entry.roots.length })
+                : hasLabel || entry.isClientMapping
+                  ? entry.root
+                  : '\u00A0'}
             </p>
             {entry.kind === 'unmapped-live' && (
               <Button

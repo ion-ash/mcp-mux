@@ -243,6 +243,11 @@ const MIGRATIONS: &[Migration] = &[
         name: "backfill_approved_clients",
         sql: include_str!("migrations/042_backfill_approved_clients.sql"),
     },
+    Migration {
+        version: 43,
+        name: "workspace_binding_project_link",
+        sql: include_str!("migrations/043_workspace_binding_project_link.sql"),
+    },
 ];
 
 /// SQLite database wrapper.

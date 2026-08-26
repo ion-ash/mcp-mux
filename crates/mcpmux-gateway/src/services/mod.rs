@@ -12,6 +12,7 @@ mod embedding;
 mod embedding_warmer;
 mod event_emitter;
 mod feature_set_resolver;
+pub mod git_remote;
 mod grant_service;
 pub mod meta_tools;
 mod notification_emitter;
@@ -32,6 +33,7 @@ pub use embedding::{EmbeddingService, EmbeddingState};
 pub use embedding_warmer::EmbeddingWarmer;
 pub use event_emitter::EventEmitter;
 pub use feature_set_resolver::{FeatureSetResolverService, ResolutionSource, ResolvedFeatureSet};
+pub use git_remote::{apply_detected_git_remote, detect_origin_remote};
 pub use grant_service::GrantService;
 pub use meta_tools::{
     is_meta_tool, routing_as_invoke_backend, ApprovalBroker, ApprovalDecision, ApprovalPayload,

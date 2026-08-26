@@ -72,6 +72,8 @@ pub(crate) fn to_workspace_binding_response(binding: mcpmux_core::WorkspaceBindi
         "icon": binding.icon,
         "space_id": binding.space_id.to_string(),
         "feature_set_ids": binding.feature_set_ids,
+        "git_remote_url": binding.git_remote_url,
+        "project_link_id": binding.project_link_id,
         "created_at": binding.created_at.to_rfc3339(),
         "updated_at": binding.updated_at.to_rfc3339(),
     })
@@ -382,6 +384,15 @@ pub async fn validate_workspace_root(path: String) -> Result<Value> {
         WorkspaceRootValidation::Ok { normalized } => as_json(normalized),
         WorkspaceRootValidation::Invalid { reason } => Err(anyhow!(reason)),
     }
+}
+
+pub async fn detect_workspace_git_remote(path: String) -> Result<Value> {
+    let normalized = match validate_workspace_root_path(&path) {
+        WorkspaceRootValidation::Empty => return as_json(Value::Null),
+        WorkspaceRootValidation::Ok { normalized } => normalized,
+        WorkspaceRootValidation::Invalid { reason } => return Err(anyhow!(reason)),
+    };
+    as_json(crate::services::detect_origin_remote(Path::new(&normalized)).await)
 }
 
 pub async fn get_workspace_effective_features(

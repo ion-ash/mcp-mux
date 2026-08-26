@@ -25,6 +25,10 @@ export const workspacesRoutes: Record<string, RouteHandler> = {
     method: 'GET',
     path: `/api/v1/workspaces/validate-root${buildQuery({ path: args.path })}`,
   }),
+  detect_workspace_git_remote: (args) => ({
+    method: 'GET',
+    path: `/api/v1/workspaces/detect-git-remote${buildQuery({ path: args.path })}`,
+  }),
   get_workspace_effective_features: (args) => ({
     method: 'GET',
     path: `/api/v1/workspaces/effective-features${buildQuery({

@@ -1031,6 +1031,7 @@ pub fn run() {
             commands::is_workspace_binding_prompt_dismissed,
             commands::delete_workspace_binding,
             commands::validate_workspace_root,
+            commands::detect_workspace_git_remote,
             commands::get_workspace_effective_features,
             // Per-workspace MCP client config install (X-Mcpmux-Workspace header)
             commands::list_workspace_install_clients,

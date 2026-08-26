@@ -36,6 +36,10 @@ export interface WorkspaceBinding {
   feature_set_ids: string[];
   created_at: string;
   updated_at: string;
+  /** Normalized `host/owner/repo` from git origin, when detected. */
+  git_remote_url?: string | null;
+  /** Manual project-link override. Wins over `git_remote_url` for grouping. */
+  project_link_id?: string | null;
 }
 
 /** Input payload for create / update. `feature_set_ids` must be non-empty. */
@@ -51,6 +55,8 @@ export interface WorkspaceBindingInput {
   machine_id?: string | null;
   /** `path` folder binding (default) or `id` client-id binding. */
   binding_type?: BindingType;
+  git_remote_url?: string | null;
+  project_link_id?: string | null;
 }
 
 /** List every binding (sorted by workspace_root). */
@@ -166,7 +172,17 @@ export function toInput(b: WorkspaceBinding): WorkspaceBindingInput {
     client_id: b.client_id,
     machine_id: b.machine_id,
     binding_type: b.binding_type,
+    git_remote_url: b.git_remote_url,
+    project_link_id: b.project_link_id,
   };
+}
+
+/**
+ * Best-effort git origin for a folder. Resolves `null` when the path isn't a
+ * clone, git isn't on PATH, or detection times out.
+ */
+export async function detectWorkspaceGitRemote(path: string): Promise<string | null> {
+  return apiCall('detect_workspace_git_remote', { path });
 }
 
 /** True when the binding routes by OAuth/API client id instead of folder path. */

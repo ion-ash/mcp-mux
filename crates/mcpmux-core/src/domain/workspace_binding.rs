@@ -82,6 +82,16 @@ pub struct WorkspaceBinding {
     /// Optional icon: emoji, URL, or `local:workspace-icons/…` ref.
     #[serde(default)]
     pub icon: Option<String>,
+    /// Normalized git `origin` remote (`host/owner/repo`), auto-captured at
+    /// bind-create when the folder is a clone. Display grouping key when
+    /// `project_link_id` is unset.
+    #[serde(default)]
+    pub git_remote_url: Option<String>,
+    /// Manual project-link override. Same value on 2+ bindings forces a
+    /// group; a value unique to one row (usually its own id) isolates it
+    /// even against a matching `git_remote_url`.
+    #[serde(default)]
+    pub project_link_id: Option<String>,
     pub space_id: Uuid,
     /// Order matters for UI rendering only — the resolver treats them as
     /// a set. Stored in the `workspace_binding_feature_sets` junction
@@ -129,6 +139,8 @@ impl WorkspaceBinding {
             machine_id: None,
             label: None,
             icon: None,
+            git_remote_url: None,
+            project_link_id: None,
             space_id,
             feature_set_ids,
             created_at: now,
@@ -163,6 +175,8 @@ impl WorkspaceBinding {
             machine_id: None,
             label: None,
             icon: None,
+            git_remote_url: None,
+            project_link_id: None,
             space_id,
             feature_set_ids,
             created_at: now,
@@ -188,12 +202,90 @@ impl WorkspaceBinding {
             machine_id: Some(machine_id),
             label: None,
             icon: None,
+            git_remote_url: None,
+            project_link_id: None,
             space_id,
             feature_set_ids,
             created_at: now,
             updated_at: now,
         }
     }
+}
+
+/// Apply an optional override column on update.
+///
+/// `None` (omitted / JSON null) keeps `existing`. `Some("")` clears.
+/// Any other `Some` value is stored trimmed.
+pub fn resolve_persisted_override(
+    incoming: Option<&str>,
+    existing: Option<String>,
+) -> Option<String> {
+    match incoming {
+        None => existing,
+        Some(raw) => {
+            let trimmed = raw.trim();
+            if trimmed.is_empty() {
+                None
+            } else {
+                Some(trimmed.to_string())
+            }
+        }
+    }
+}
+
+/// Collapse a git remote URL to `host/owner/repo` (lowercase, no `.git`).
+///
+/// Accepts `git@host:path`, `https://host/path`, `ssh://git@host/path`, and
+/// an already-normalized `host/path`. Returns `None` for empty or unparseable
+/// input.
+pub fn normalize_git_remote(url: &str) -> Option<String> {
+    let trimmed = url.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+
+    let rest = if let Some(after_scheme) = trimmed.split_once("://").map(|(_, rest)| rest) {
+        strip_url_userinfo(after_scheme)
+    } else if let Some(scp) = trimmed.strip_prefix("git@") {
+        replace_first_colon(scp)
+    } else if trimmed.contains('/') && trimmed.contains('.') {
+        trimmed.to_string()
+    } else {
+        return None;
+    };
+
+    finalize_git_remote(&rest)
+}
+
+fn strip_url_userinfo(after_scheme: &str) -> String {
+    let host_end = after_scheme.find('/').unwrap_or(after_scheme.len());
+    let host_part = &after_scheme[..host_end];
+    if let Some(at) = host_part.rfind('@') {
+        after_scheme[at + 1..].to_string()
+    } else {
+        after_scheme.to_string()
+    }
+}
+
+fn replace_first_colon(scp: &str) -> String {
+    match scp.split_once(':') {
+        Some((host, path)) => format!("{host}/{path}"),
+        None => scp.to_string(),
+    }
+}
+
+fn finalize_git_remote(rest: &str) -> Option<String> {
+    let without_hash = rest.split('#').next().unwrap_or(rest);
+    let without_query = without_hash.split('?').next().unwrap_or(without_hash);
+    let trimmed = without_query.trim_end_matches('/');
+    let stripped = trimmed
+        .strip_suffix(".git")
+        .unwrap_or(trimmed)
+        .trim_end_matches('/');
+    if stripped.is_empty() || !stripped.contains('/') {
+        return None;
+    }
+    Some(stripped.to_ascii_lowercase())
 }
 
 /// Trim-empty helper for optional binding metadata fields.
@@ -991,5 +1083,59 @@ mod tests {
             }
             other => panic!("expected Invalid, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn normalize_git_remote_collapses_common_forms() {
+        let expected = Some("github.com/mcpmux/mcp-mux".to_string());
+        assert_eq!(
+            normalize_git_remote("git@github.com:mcpmux/mcp-mux.git"),
+            expected
+        );
+        assert_eq!(
+            normalize_git_remote("https://github.com/mcpmux/mcp-mux.git"),
+            expected
+        );
+        assert_eq!(
+            normalize_git_remote("https://github.com/mcpmux/mcp-mux"),
+            expected
+        );
+        assert_eq!(
+            normalize_git_remote("ssh://git@github.com/mcpmux/mcp-mux.git"),
+            expected
+        );
+        assert_eq!(
+            normalize_git_remote("https://github.com/Mcpmux/mcp-mux.git/"),
+            expected
+        );
+        assert_eq!(normalize_git_remote("github.com/mcpmux/mcp-mux"), expected);
+    }
+
+    #[test]
+    fn normalize_git_remote_strips_userinfo_and_rejects_junk() {
+        assert_eq!(
+            normalize_git_remote("https://user:token@github.com/mcpmux/mcp-mux.git"),
+            Some("github.com/mcpmux/mcp-mux".to_string())
+        );
+        assert_eq!(normalize_git_remote(""), None);
+        assert_eq!(normalize_git_remote("   "), None);
+        assert_eq!(normalize_git_remote("not-a-remote"), None);
+        assert_eq!(normalize_git_remote("https://github.com"), None);
+    }
+
+    #[test]
+    fn resolve_persisted_override_omitted_empty_and_set() {
+        assert_eq!(
+            resolve_persisted_override(None, Some("keep".into())),
+            Some("keep".into())
+        );
+        assert_eq!(
+            resolve_persisted_override(Some(""), Some("keep".into())),
+            None
+        );
+        assert_eq!(
+            resolve_persisted_override(Some("  new  "), Some("keep".into())),
+            Some("new".into())
+        );
     }
 }

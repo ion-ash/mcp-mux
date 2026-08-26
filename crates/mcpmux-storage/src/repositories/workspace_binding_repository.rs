@@ -72,6 +72,8 @@ impl SqliteWorkspaceBindingRepository {
         let label: Option<String> = row.get(7)?;
         let icon: Option<String> = row.get(8)?;
         let binding_type_raw: String = row.get(9)?;
+        let git_remote_url: Option<String> = row.get(10)?;
+        let project_link_id: Option<String> = row.get(11)?;
 
         Ok(WorkspaceBinding {
             id: id_str.parse().unwrap_or_else(|_| Uuid::new_v4()),
@@ -81,6 +83,8 @@ impl SqliteWorkspaceBindingRepository {
             machine_id: machine_id_str.and_then(|s| s.parse().ok()),
             label,
             icon,
+            git_remote_url,
+            project_link_id,
             space_id: space_id_str.parse().unwrap_or_else(|_| Uuid::nil()),
             feature_set_ids: Vec::new(), // filled in by caller
             created_at: Self::parse_datetime(&created_at),
@@ -160,7 +164,7 @@ impl SqliteWorkspaceBindingRepository {
     }
 
     const SELECT_COLS: &'static str =
-        "id, workspace_root, space_id, created_at, updated_at, client_id, machine_id, label, icon, binding_type";
+        "id, workspace_root, space_id, created_at, updated_at, client_id, machine_id, label, icon, binding_type, git_remote_url, project_link_id";
 
     /// Last path segment of a normalized workspace root for basename matching.
     fn workspace_root_basename(normalized: &str) -> Option<String> {
@@ -246,8 +250,8 @@ impl WorkspaceBindingRepository for SqliteWorkspaceBindingRepository {
         let tx = conn.unchecked_transaction()?;
         tx.execute(
             "INSERT INTO workspace_bindings
-                (id, workspace_root, space_id, created_at, updated_at, client_id, machine_id, label, icon, binding_type)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+                (id, workspace_root, space_id, created_at, updated_at, client_id, machine_id, label, icon, binding_type, git_remote_url, project_link_id)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
             params![
                 binding.id.to_string(),
                 binding.workspace_root,
@@ -259,6 +263,8 @@ impl WorkspaceBindingRepository for SqliteWorkspaceBindingRepository {
                 binding.label,
                 binding.icon,
                 binding.binding_type.as_db_str(),
+                binding.git_remote_url,
+                binding.project_link_id,
             ],
         )?;
         Self::rewrite_fs_for_binding(&tx, &binding.id.to_string(), &binding.feature_set_ids)?;
@@ -279,7 +285,8 @@ impl WorkspaceBindingRepository for SqliteWorkspaceBindingRepository {
         let rows_affected = tx.execute(
             "UPDATE workspace_bindings
              SET workspace_root = ?2, space_id = ?3, updated_at = ?4, client_id = ?5,
-                 machine_id = ?6, label = ?7, icon = ?8, binding_type = ?9
+                 machine_id = ?6, label = ?7, icon = ?8, binding_type = ?9,
+                 git_remote_url = ?10, project_link_id = ?11
              WHERE id = ?1",
             params![
                 binding.id.to_string(),
@@ -291,6 +298,8 @@ impl WorkspaceBindingRepository for SqliteWorkspaceBindingRepository {
                 binding.label,
                 binding.icon,
                 binding.binding_type.as_db_str(),
+                binding.git_remote_url,
+                binding.project_link_id,
             ],
         )?;
 
@@ -496,6 +505,36 @@ mod tests {
         repo.update(&cleared).await.unwrap();
         let after = repo.get(&binding.id).await.unwrap().unwrap();
         assert_eq!(after.machine_id, None);
+    }
+
+    #[tokio::test]
+    async fn test_git_remote_and_project_link_round_trip() {
+        let (repo, space_id, fs_id) = fixture().await;
+        let root = if cfg!(windows) {
+            "d:\\linked"
+        } else {
+            "/linked"
+        };
+        let mut binding = WorkspaceBinding::new(root, space_id, fs_id);
+        binding.git_remote_url = Some("github.com/mcpmux/mcp-mux".to_string());
+        binding.project_link_id = Some("link-1".to_string());
+        repo.create(&binding).await.unwrap();
+
+        let mut got = repo.get(&binding.id).await.unwrap().unwrap();
+        assert_eq!(
+            got.git_remote_url.as_deref(),
+            Some("github.com/mcpmux/mcp-mux")
+        );
+        assert_eq!(got.project_link_id.as_deref(), Some("link-1"));
+
+        got.project_link_id = None;
+        repo.update(&got).await.unwrap();
+        let after = repo.get(&binding.id).await.unwrap().unwrap();
+        assert!(after.project_link_id.is_none());
+        assert_eq!(
+            after.git_remote_url.as_deref(),
+            Some("github.com/mcpmux/mcp-mux")
+        );
     }
 
     #[tokio::test]

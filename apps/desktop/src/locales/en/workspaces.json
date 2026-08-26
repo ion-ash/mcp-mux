@@ -57,7 +57,9 @@
     "unbound": "unbound",
     "unboundTooltip": "No binding matches this folder yet — a live session would be denied. Click to bind it to a FeatureSet.",
     "machine": "Machine",
-    "machineRow": "Open binding for {{machine}}"
+    "machineRow": "Open binding for {{machine}}",
+    "locations_one": "{{count}} location",
+    "locations_other": "{{count}} locations"
   },
   "machineIdentity": {
     "bannerMessage": "This McpMux install has no machine identity. Name it to organize and filter your projects by machine.",
@@ -106,7 +108,19 @@
     "adoptColSpace": "Space",
     "adoptColToolSet": "Tool set",
     "adoptUseThis": "Use this",
-    "adoptStartFresh": "Start fresh"
+    "adoptStartFresh": "Start fresh",
+    "project": "Project",
+    "projectLinkedGit": "Linked via git remote: {{remote}}",
+    "projectNotGit": "Not a git folder — no automatic grouping.",
+    "projectNotLinked": "Not linked to any other binding.",
+    "projectLinkedOthers_one": "{{count}} other binding in this project",
+    "projectLinkedOthers_other": "{{count}} other bindings in this project",
+    "projectRefresh": "Refresh git link",
+    "projectLink": "Link to another binding…",
+    "projectUnlink": "Unlink",
+    "projectFollowGit": "Follow git remote",
+    "projectSearch": "Search bindings…",
+    "projectNoMatches": "No other bindings match."
   },
   "saveStatus": {
     "saving": "Saving",

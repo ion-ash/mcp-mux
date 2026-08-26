@@ -5,7 +5,9 @@ import {
   ChevronDown,
   Check,
   FolderOpen,
+  GitBranch,
   Layers,
+  Link2,
   Loader2,
   Monitor,
   Plus,
@@ -20,8 +22,10 @@ import { apiCall } from '@/lib/api/transport';
 import {
   createWorkspaceBinding,
   deleteWorkspaceBinding,
+  detectWorkspaceGitRemote,
   dismissWorkspaceBindingPrompt,
   listWorkspaceBindings,
+  toInput,
   updateWorkspaceBinding,
   validateWorkspaceRoot,
   type WorkspaceBinding,
@@ -52,7 +56,9 @@ import {
   buildBindingPayload,
   adoptBindingSeed,
   findAdoptableSiblingBindings,
+  findLinkableBindings,
   folderName,
+  projectKey,
   formatFsList,
   normalizeIcon,
   sameBindingInput,
@@ -280,6 +286,9 @@ export function WorkspaceBindingPanel() {
   const [root, setRoot] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [rootValidation, setRootValidation] = useState<RootValidationState>({ state: 'idle' });
+  const [showLinkPicker, setShowLinkPicker] = useState(false);
+  const [linkQuery, setLinkQuery] = useState('');
+  const [refreshingGit, setRefreshingGit] = useState(false);
 
   const validationSeq = useRef(0);
   const saveSeqRef = useRef(0);
@@ -323,6 +332,8 @@ export function WorkspaceBindingPanel() {
     setCreatingMachine(false);
     setNewMachineName('');
     setAdoptDismissed(false);
+    setShowLinkPicker(false);
+    setLinkQuery('');
     setAppearanceIcon(null);
 
     void (async () => {
@@ -406,6 +417,25 @@ export function WorkspaceBindingPanel() {
 
   const adoptSource =
     mode === 'create-from-live' && !adoptDismissed ? siblingBindings[0] ?? null : null;
+
+  const linkableBindings = useMemo(() => {
+    if (!isEdit || !payload?.binding) return [];
+    const q = linkQuery.trim().toLowerCase();
+    return findLinkableBindings(allBindings, payload.binding.id).filter((b) => {
+      if (!q) return true;
+      return (
+        b.workspace_root.toLowerCase().includes(q) ||
+        (b.label ?? '').toLowerCase().includes(q)
+      );
+    });
+  }, [isEdit, payload?.binding, allBindings, linkQuery]);
+
+  const linkedSiblings = useMemo(() => {
+    if (!payload?.binding) return [];
+    const key = projectKey(payload.binding);
+    if (!key) return [];
+    return allBindings.filter((b) => b.id !== payload.binding?.id && projectKey(b) === key);
+  }, [allBindings, payload?.binding]);
 
   const effectiveMachineId = isEdit
     ? bindingMachineId(machineId)
@@ -577,6 +607,78 @@ export function WorkspaceBindingPanel() {
     },
     [payload, isEdit, clientMachineId, close],
   );
+
+  const refreshBindings = useCallback(async () => {
+    const loaded = await listWorkspaceBindings().catch(() => [] as WorkspaceBinding[]);
+    setAllBindings(loaded);
+    return loaded;
+  }, []);
+
+  /**
+   * Persist a project-link field, then refresh the edit payload so the
+   * Project section reflects the saved grouping key.
+   */
+  const persistProjectFields = useCallback(
+    async (
+      target: WorkspaceBinding,
+      patch: Pick<WorkspaceBindingInput, 'git_remote_url' | 'project_link_id'>,
+    ) => {
+      const updated = await updateWorkspaceBinding(target.id, { ...toInput(target), ...patch });
+      const loaded = await refreshBindings();
+      const next = loaded.find((b) => b.id === target.id) ?? updated;
+      open({ mode: 'edit', binding: next });
+    },
+    [open, refreshBindings],
+  );
+
+  const handleRefreshGit = useCallback(async () => {
+    if (!payload?.binding) return;
+    setRefreshingGit(true);
+    try {
+      const remote = await detectWorkspaceGitRemote(payload.binding.workspace_root);
+      await persistProjectFields(payload.binding, { git_remote_url: remote ?? '' });
+    } catch (e) {
+      showError(t('toast.couldNotSave'), e instanceof Error ? e.message : String(e));
+    } finally {
+      setRefreshingGit(false);
+    }
+  }, [payload?.binding, persistProjectFields, showError, t]);
+
+  const handleLinkTo = useCallback(
+    async (target: WorkspaceBinding) => {
+      if (!payload?.binding) return;
+      const linkId = target.project_link_id || payload.binding.project_link_id || crypto.randomUUID();
+      try {
+        if (!target.project_link_id) {
+          await updateWorkspaceBinding(target.id, { ...toInput(target), project_link_id: linkId });
+        }
+        await persistProjectFields(payload.binding, { project_link_id: linkId });
+        setShowLinkPicker(false);
+        setLinkQuery('');
+      } catch (e) {
+        showError(t('toast.couldNotSave'), e instanceof Error ? e.message : String(e));
+      }
+    },
+    [payload?.binding, persistProjectFields, showError, t],
+  );
+
+  const handleUnlink = useCallback(async () => {
+    if (!payload?.binding) return;
+    try {
+      await persistProjectFields(payload.binding, { project_link_id: payload.binding.id });
+    } catch (e) {
+      showError(t('toast.couldNotSave'), e instanceof Error ? e.message : String(e));
+    }
+  }, [payload?.binding, persistProjectFields, showError, t]);
+
+  const handleFollowGit = useCallback(async () => {
+    if (!payload?.binding) return;
+    try {
+      await persistProjectFields(payload.binding, { project_link_id: '' });
+    } catch (e) {
+      showError(t('toast.couldNotSave'), e instanceof Error ? e.message : String(e));
+    }
+  }, [payload?.binding, persistProjectFields, showError, t]);
 
   const handleFormSubmit = useCallback(
     async (machineTargets: (string | null)[]) => {
@@ -1215,6 +1317,121 @@ export function WorkspaceBindingPanel() {
                   t={t}
                 />
               </CollapsibleSection>
+
+              {isEdit && binding && (
+                <CollapsibleSection
+                  icon={<GitBranch className="h-5 w-5" />}
+                  tone="primary"
+                  title={t('panel.project')}
+                  subtitle={
+                    linkedSiblings.length > 0
+                      ? t('panel.projectLinkedOthers', { count: linkedSiblings.length })
+                      : t('panel.projectNotLinked')
+                  }
+                  defaultOpen
+                  testId="workspace-project-section"
+                >
+                  <div className="space-y-3">
+                    <p className="text-xs text-[rgb(var(--muted))]">
+                      {binding.git_remote_url
+                        ? t('panel.projectLinkedGit', { remote: binding.git_remote_url })
+                        : t('panel.projectNotGit')}
+                    </p>
+                    {linkedSiblings.length > 0 && (
+                      <ul className="space-y-1 text-xs text-[rgb(var(--foreground))]">
+                        {linkedSiblings.map((sibling) => (
+                          <li key={sibling.id} className="font-mono break-all">
+                            {sibling.label?.trim() || sibling.workspace_root}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => void handleRefreshGit()}
+                        disabled={refreshingGit}
+                        data-testid="workspace-binding-refresh-git"
+                      >
+                        {refreshingGit ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
+                        ) : (
+                          <GitBranch className="h-3.5 w-3.5 mr-1.5" />
+                        )}
+                        {t('panel.projectRefresh')}
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => setShowLinkPicker((openPicker) => !openPicker)}
+                        data-testid="workspace-binding-link-toggle"
+                      >
+                        <Link2 className="h-3.5 w-3.5 mr-1.5" />
+                        {t('panel.projectLink')}
+                      </Button>
+                      {binding.project_link_id ? (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => void handleFollowGit()}
+                          data-testid="workspace-binding-follow-git"
+                        >
+                          {t('panel.projectFollowGit')}
+                        </Button>
+                      ) : null}
+                      {linkedSiblings.length > 0 && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => void handleUnlink()}
+                          data-testid="workspace-binding-unlink"
+                        >
+                          {t('panel.projectUnlink')}
+                        </Button>
+                      )}
+                    </div>
+                    {showLinkPicker && (
+                      <div
+                        className="rounded-lg border border-[rgb(var(--border))] p-2 space-y-2"
+                        data-testid="workspace-binding-link-picker"
+                      >
+                        <input
+                          type="search"
+                          value={linkQuery}
+                          onChange={(e) => setLinkQuery(e.target.value)}
+                          placeholder={t('panel.projectSearch')}
+                          className="w-full rounded-md border border-[rgb(var(--border))] bg-[rgb(var(--background))] px-2 py-1.5 text-xs"
+                          data-testid="workspace-binding-link-search"
+                        />
+                        {linkableBindings.length === 0 ? (
+                          <p className="text-xs text-[rgb(var(--muted))]">{t('panel.projectNoMatches')}</p>
+                        ) : (
+                          <ul className="max-h-40 overflow-y-auto space-y-1">
+                            {linkableBindings.map((candidate) => (
+                              <li key={candidate.id}>
+                                <button
+                                  type="button"
+                                  className="w-full rounded-md px-2 py-1.5 text-left text-xs hover:bg-[rgb(var(--surface-hover))]"
+                                  onClick={() => void handleLinkTo(candidate)}
+                                  data-testid={`workspace-binding-link-${candidate.id}`}
+                                >
+                                  <span className="block font-medium">
+                                    {candidate.label?.trim() || folderName(candidate.workspace_root)}
+                                  </span>
+                                  <span className="block font-mono text-[rgb(var(--muted))] break-all">
+                                    {candidate.workspace_root}
+                                  </span>
+                                </button>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </CollapsibleSection>
+              )}
 
               {showEffectiveFeatures && workspaceRoot && (
                 <CollapsibleSection

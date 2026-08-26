@@ -8,10 +8,11 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 use mcpmux_core::{
-    normalize_optional_metadata, validate_workspace_root as validate_root, BindingType,
-    DomainEvent, FeatureSet, FeatureSetType, MemberMode, MemberType, ServerFeature,
-    WorkspaceBinding, WorkspaceRootValidation,
+    normalize_optional_metadata, resolve_persisted_override,
+    validate_workspace_root as validate_root, BindingType, DomainEvent, FeatureSet, FeatureSetType,
+    MemberMode, MemberType, ServerFeature, WorkspaceBinding, WorkspaceRootValidation,
 };
+use mcpmux_gateway::services::{apply_detected_git_remote, detect_origin_remote};
 use mcpmux_storage::InboundClientRepository;
 use serde::{Deserialize, Serialize};
 use tauri::State;
@@ -79,6 +80,10 @@ pub struct WorkspaceBindingDto {
     pub machine_id: Option<String>,
     #[serde(default)]
     pub binding_type: Option<String>,
+    #[serde(default)]
+    pub git_remote_url: Option<String>,
+    #[serde(default)]
+    pub project_link_id: Option<String>,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -94,6 +99,8 @@ impl From<WorkspaceBinding> for WorkspaceBindingDto {
             feature_set_ids: b.feature_set_ids,
             machine_id: b.machine_id.map(|id| id.to_string()),
             binding_type: Some(b.binding_type.as_db_str().to_string()),
+            git_remote_url: b.git_remote_url,
+            project_link_id: b.project_link_id,
             created_at: b.created_at.to_rfc3339(),
             updated_at: b.updated_at.to_rfc3339(),
         }
@@ -116,6 +123,10 @@ pub struct WorkspaceBindingInput {
     pub machine_id: Option<String>,
     #[serde(default)]
     pub binding_type: Option<String>,
+    #[serde(default)]
+    pub git_remote_url: Option<String>,
+    #[serde(default)]
+    pub project_link_id: Option<String>,
 }
 
 fn parse_optional_machine_id(value: Option<&str>) -> Result<Option<Uuid>, String> {
@@ -352,6 +363,18 @@ pub async fn list_workspace_bindings_for_space(
         .map_err(|e| e.to_string())
 }
 
+/// Best-effort `origin` remote for a folder. `None` when the path isn't a
+/// git clone, git isn't on PATH, or detection times out.
+#[tauri::command]
+pub async fn detect_workspace_git_remote(path: String) -> Result<Option<String>, String> {
+    let normalized = match validate_root(&path) {
+        WorkspaceRootValidation::Empty => return Ok(None),
+        WorkspaceRootValidation::Ok { normalized } => normalized,
+        WorkspaceRootValidation::Invalid { reason } => return Err(reason),
+    };
+    Ok(detect_origin_remote(std::path::Path::new(&normalized)).await)
+}
+
 /// Live path validation for the UI — returns `Ok(normalized)` or
 /// `Err(reason)`. Runs the same rules the create/update commands apply, so
 /// the form can show the real error message without round-tripping a save.
@@ -398,10 +421,13 @@ pub async fn create_workspace_binding(
         binding.machine_id = machine_id;
         binding.label = resolve_binding_label(&input, None);
         binding.icon = normalize_optional_metadata(&input.icon);
+        binding.git_remote_url = resolve_persisted_override(input.git_remote_url.as_deref(), None);
+        binding.project_link_id =
+            resolve_persisted_override(input.project_link_id.as_deref(), None);
         (client_key.to_string(), binding)
     } else {
         let normalized = normalize_and_validate(&input.workspace_root)?;
-        let binding = WorkspaceBinding {
+        let mut binding = WorkspaceBinding {
             id: Uuid::new_v4(),
             workspace_root: normalized.clone(),
             binding_type: BindingType::Path,
@@ -409,11 +435,14 @@ pub async fn create_workspace_binding(
             machine_id,
             label: resolve_binding_label(&input, None),
             icon: resolve_binding_icon(&state, &normalized, &input, None).await?,
+            git_remote_url: resolve_persisted_override(input.git_remote_url.as_deref(), None),
+            project_link_id: resolve_persisted_override(input.project_link_id.as_deref(), None),
             space_id,
             feature_set_ids,
             created_at: chrono::Utc::now(),
             updated_at: chrono::Utc::now(),
         };
+        apply_detected_git_remote(&mut binding).await;
         (normalized, binding)
     };
 
@@ -539,6 +568,14 @@ pub async fn update_workspace_binding(
         machine_id,
         label,
         icon,
+        git_remote_url: resolve_persisted_override(
+            input.git_remote_url.as_deref(),
+            existing.git_remote_url.clone(),
+        ),
+        project_link_id: resolve_persisted_override(
+            input.project_link_id.as_deref(),
+            existing.project_link_id.clone(),
+        ),
         space_id,
         feature_set_ids,
         created_at: existing.created_at,

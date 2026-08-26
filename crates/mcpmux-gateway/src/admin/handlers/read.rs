@@ -401,6 +401,15 @@ pub async fn validate_workspace_root(
         .map_err(ApiError::from_bridge)
 }
 
+pub async fn detect_workspace_git_remote(
+    Query(query): Query<ValidateRootQuery>,
+) -> Result<Json<Value>, ApiError> {
+    bridge::detect_workspace_git_remote(query.path)
+        .await
+        .map(ok)
+        .map_err(ApiError::from_bridge)
+}
+
 pub async fn get_workspace_effective_features(
     State(state): State<AdminState>,
     Query(query): Query<EffectiveFeaturesQuery>,

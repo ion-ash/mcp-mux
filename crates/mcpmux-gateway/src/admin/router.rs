@@ -280,6 +280,10 @@ pub fn build_admin_router(state: AdminState) -> Router {
             get(read::validate_workspace_root),
         )
         .route(
+            "/api/v1/workspaces/detect-git-remote",
+            get(read::detect_workspace_git_remote),
+        )
+        .route(
             "/api/v1/workspaces/effective-features",
             get(read::get_workspace_effective_features),
         )
