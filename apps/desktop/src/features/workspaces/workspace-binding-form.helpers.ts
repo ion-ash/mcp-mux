@@ -22,6 +22,18 @@ export function normalizeIcon(icon: string | null | undefined): string | null {
 }
 
 /**
+ * Render FeatureSet names as one display line (`a + b + c`).
+ * Sorted A–Z so the same set always reads the same across machines.
+ * Drops empty/missing names; returns '' so callers can fall back to a placeholder.
+ */
+export function formatFsList(names: string[]): string {
+  return names
+    .filter((n) => n.length > 0)
+    .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }))
+    .join(' + ');
+}
+
+/**
  * Last path segment of a workspace root, normalized for cross-platform matching.
  */
 export function folderName(root: string): string {

@@ -84,6 +84,7 @@ import {
 } from '@/stores';
 import type { Space } from '@/lib/api/spaces';
 import { FormField } from './workspace-binding-form.component';
+import { formatFsList } from './workspace-binding-form.helpers';
 import { EmojiPickerButton } from '@/components/emoji-picker-button.component';
 import { useViewerIdentity } from '@/hooks/use-viewer-identity.hook';
 
@@ -698,18 +699,6 @@ export function WorkspacesPage() {
 // ---------------------------------------------------------------------------
 // Filter segmented control
 // ---------------------------------------------------------------------------
-
-/**
- * Render a list of FeatureSet names as a single string for display
- * surfaces (cards, badges, panel headers) where a multi-FS binding has
- * to fit on one line. Returns '' for empty input so callers can fall
- * back to a placeholder. Drops empty/missing entries silently — they're
- * already known to the caller as "fs not found", and there's nothing
- * useful to show.
- */
-function formatFsList(names: string[]): string {
-  return names.filter((n) => n && n.length > 0).join(' + ');
-}
 
 /**
  * Primary title for a workspace entry — label when set, otherwise the path.

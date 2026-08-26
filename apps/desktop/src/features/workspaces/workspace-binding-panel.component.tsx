@@ -53,6 +53,7 @@ import {
   adoptBindingSeed,
   findAdoptableSiblingBindings,
   folderName,
+  formatFsList,
   normalizeIcon,
   sameBindingInput,
   type RootValidationState,
@@ -63,13 +64,6 @@ import {
   EffectiveFeaturesContent,
   type CollapsibleSectionRef,
 } from './WorkspacesPage';
-
-/**
- * Render a list of FeatureSet names as a single string for panel subtitles.
- */
-function formatFsList(names: string[]): string {
-  return names.filter((n) => n && n.length > 0).join(' + ');
-}
 
 /**
  * Resolve machine badge label for header and Scope subtitle.
