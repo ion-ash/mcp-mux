@@ -338,6 +338,32 @@ pub fn run() {
             let event_bus = mcpmux_core::create_shared_event_bus();
             let event_sender = event_bus.sender();
 
+            // Associate existing local clones with their git origin so the
+            // Projects page groups the same repo across machines without a
+            // manual refresh. Background: git probes are fail-open and can
+            // sit on a timeout per folder.
+            {
+                let binding_repo = app_state.workspace_binding_repository.clone();
+                let app_handle_for_git = app.handle().clone();
+                tauri::async_runtime::spawn(async move {
+                    let updated = mcpmux_gateway::services::backfill_missing_git_remotes(
+                        binding_repo.as_ref(),
+                    )
+                    .await;
+                    if updated == 0 {
+                        return;
+                    }
+                    info!(
+                        updated,
+                        "[Startup] backfilled git remotes on workspace bindings"
+                    );
+                    let _ = app_handle_for_git.emit(
+                        "workspace-binding-changed",
+                        serde_json::json!({ "workspace_root": "" }),
+                    );
+                });
+            }
+
             let server_app_service = mcpmux_core::ServerAppService::new(
                 app_state.installed_server_repository.clone(),
                 Some(app_state.server_feature_repository_core.clone()),

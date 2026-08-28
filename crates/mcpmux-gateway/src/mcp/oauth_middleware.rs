@@ -505,8 +505,8 @@ fn resolve_window_pin(
     workspace_set_header: Option<&str>,
     trace_id: &str,
 ) {
-    let same_request_single_set = workspace_set_header
-        .is_some_and(SessionRootsRegistry::set_header_is_single_folder);
+    let same_request_single_set =
+        workspace_set_header.is_some_and(SessionRootsRegistry::set_header_is_single_folder);
     if empty_workspace_header && !same_request_single_set {
         services.session_roots.forget_empty_header_claim(session_id);
         warn!(

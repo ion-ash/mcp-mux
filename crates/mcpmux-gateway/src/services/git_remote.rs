@@ -6,7 +6,11 @@
 use std::path::Path;
 use std::time::Duration;
 
-use mcpmux_core::{normalize_git_remote, BindingType, WorkspaceBinding};
+use chrono::Utc;
+use mcpmux_core::{
+    normalize_git_remote, BindingType, WorkspaceBinding, WorkspaceBindingRepository,
+};
+use tracing::debug;
 
 use crate::pool::transport::configure_child_process_platform;
 
@@ -43,4 +47,39 @@ pub async fn apply_detected_git_remote(binding: &mut WorkspaceBinding) {
         return;
     }
     binding.git_remote_url = detect_origin_remote(Path::new(&binding.workspace_root)).await;
+}
+
+/// Persist `git_remote_url` for path bindings that live on this machine and
+/// do not have one yet. Fail-open per row. Returns how many rows were written.
+pub async fn backfill_missing_git_remotes(repo: &dyn WorkspaceBindingRepository) -> usize {
+    let Ok(bindings) = repo.list().await else {
+        return 0;
+    };
+
+    let mut updated = 0;
+    for mut binding in bindings {
+        if binding.binding_type != BindingType::Path || binding.git_remote_url.is_some() {
+            continue;
+        }
+        let path = Path::new(&binding.workspace_root);
+        if !path.is_dir() {
+            continue;
+        }
+        let Some(remote) = detect_origin_remote(path).await else {
+            continue;
+        };
+        binding.git_remote_url = Some(remote);
+        binding.updated_at = Utc::now();
+        match repo.update(&binding).await {
+            Ok(()) => updated += 1,
+            Err(error) => {
+                debug!(
+                    binding_id = %binding.id,
+                    %error,
+                    "[git_remote] backfill update failed"
+                );
+            }
+        }
+    }
+    updated
 }

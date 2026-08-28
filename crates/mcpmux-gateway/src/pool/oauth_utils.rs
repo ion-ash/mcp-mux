@@ -5,10 +5,13 @@
 //! (e.g., `https://mcp.atlassian.com/v1/sse`). This module provides utilities
 //! to handle both cases.
 
-use mcpmux_core::StoredOAuthMetadata;
+use std::time::Duration;
+
+use mcpmux_core::{CredentialRepository, OutboundOAuthRepository, StoredOAuthMetadata};
 use rmcp::transport::auth::{AuthError, AuthorizationManager, AuthorizationMetadata};
-use tracing::info;
+use tracing::{info, warn};
 use url::Url;
+use uuid::Uuid;
 
 /// Extract the origin (scheme + host + port) from a URL.
 ///
@@ -96,6 +99,110 @@ pub fn convert_to_stored_metadata(metadata: &AuthorizationMetadata) -> StoredOAu
     }
 }
 
+/// True when an OAuth error means the cached DCR `client_id` is dead.
+///
+/// `invalid_client` (RFC 6749 / RFC 7591) is the standard signal to drop the
+/// registration and POST `/register` again. Providers also spell this as
+/// `invalid client_id` (Cloudflare) or "unrecognized client".
+///
+/// `invalid_client_metadata` is a DCR request problem, not a stale cache hit.
+pub fn is_stale_oauth_client_error(text: &str) -> bool {
+    let lower = text.to_ascii_lowercase();
+    if lower.contains("invalid_client") && !lower.contains("invalid_client_metadata") {
+        return true;
+    }
+    const NEEDLES: &[&str] = &[
+        "invalid client_id",
+        "invalid client id",
+        "unrecognized client",
+        "unknown client",
+        "client_id is not registered",
+        "client id is not registered",
+        "client not found",
+        "no registered client",
+    ];
+    NEEDLES.iter().any(|needle| lower.contains(needle))
+}
+
+/// Drop a cached outbound DCR row and its tokens so the next flow re-registers.
+pub async fn invalidate_stale_outbound_dcr(
+    credential_repo: &dyn CredentialRepository,
+    backend_oauth_repo: &dyn OutboundOAuthRepository,
+    space_id: &Uuid,
+    server_id: &str,
+) {
+    if let Err(e) = backend_oauth_repo.delete(space_id, server_id).await {
+        warn!(
+            "[OAuth] Failed to delete stale DCR for {}/{}: {}",
+            space_id, server_id, e
+        );
+    }
+    if let Err(e) = credential_repo.clear_tokens(space_id, server_id).await {
+        warn!(
+            "[OAuth] Failed to clear tokens after stale DCR for {}/{}: {}",
+            space_id, server_id, e
+        );
+    }
+    info!(
+        "[OAuth] Dropped stale DCR client_id for {}/{}; will re-register",
+        space_id, server_id
+    );
+}
+
+/// GET the authorize URL (no loopback follow) and report an explicit client rejection.
+///
+/// Network failures and generic 4xx pages return `false` so a flaky probe does not
+/// force a needless re-register. Cloudflare renders `invalid client_id` as HTML
+/// on 200, which this still catches.
+pub async fn authorize_url_rejects_cached_client(auth_url: &str) -> bool {
+    let client = match reqwest::Client::builder()
+        .redirect(reqwest::redirect::Policy::custom(|attempt| {
+            match attempt.url().host_str() {
+                Some("127.0.0.1") | Some("localhost") | Some("[::1]") => attempt.stop(),
+                _ if attempt.previous().len() >= 5 => attempt.stop(),
+                _ => attempt.follow(),
+            }
+        }))
+        .timeout(Duration::from_secs(8))
+        .build()
+    {
+        Ok(c) => c,
+        Err(_) => return false,
+    };
+
+    let response = match client.get(auth_url).send().await {
+        Ok(r) => r,
+        Err(_) => return false,
+    };
+
+    if let Some(location) = response
+        .headers()
+        .get(reqwest::header::LOCATION)
+        .and_then(|v| v.to_str().ok())
+    {
+        if location_rejects_cached_client(location) {
+            return true;
+        }
+    }
+
+    let body = response.text().await.unwrap_or_default();
+    is_stale_oauth_client_error(&body)
+}
+
+/// True when a redirect `Location` carries an invalid-client OAuth error.
+fn location_rejects_cached_client(location: &str) -> bool {
+    if is_stale_oauth_client_error(location) {
+        return true;
+    }
+    let Ok(url) = Url::parse(location) else {
+        return false;
+    };
+    url.query_pairs().any(|(key, value)| {
+        matches!(key.as_ref(), "error" | "error_description")
+            && is_stale_oauth_client_error(value.as_ref())
+    })
+}
+
 /// Convert our StoredOAuthMetadata back to RMCP's AuthorizationMetadata format.
 ///
 /// This is used when loading saved metadata and setting it on the RMCP manager
@@ -144,5 +251,38 @@ mod tests {
     #[test]
     fn test_extract_origin_invalid_url() {
         assert_eq!(extract_origin("not a url"), None);
+    }
+
+    #[test]
+    fn stale_client_matches_rfc_and_cloudflare() {
+        assert!(is_stale_oauth_client_error("invalid_client"));
+        assert!(is_stale_oauth_client_error(
+            "OAuth token refresh failed: invalid_client"
+        ));
+        assert!(is_stale_oauth_client_error(
+            "Invalid Request\ninvalid client_id"
+        ));
+        assert!(is_stale_oauth_client_error("Unrecognized client_id"));
+        assert!(is_stale_oauth_client_error(
+            "error=invalid_client&error_description=unknown+client"
+        ));
+    }
+
+    #[test]
+    fn stale_client_ignores_unrelated_errors() {
+        assert!(!is_stale_oauth_client_error("invalid_client_metadata"));
+        assert!(!is_stale_oauth_client_error("invalid_grant"));
+        assert!(!is_stale_oauth_client_error("access_denied"));
+        assert!(!is_stale_oauth_client_error("redirect_uri mismatch"));
+    }
+
+    #[test]
+    fn location_header_rejects_invalid_client_query() {
+        assert!(location_rejects_cached_client(
+            "http://127.0.0.1:33418/oauth2redirect?error=invalid_client"
+        ));
+        assert!(!location_rejects_cached_client(
+            "https://dash.cloudflare.com/login?state=abc"
+        ));
     }
 }

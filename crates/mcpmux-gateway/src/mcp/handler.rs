@@ -868,10 +868,17 @@ impl ServerHandler for McpMuxGatewayHandler {
         let session_id = session_id_owned.as_deref();
 
         let mut arguments = params.arguments.take().unwrap_or_default();
+        // Meta tools (mcpmux_*) are the session's self-diagnosis/recovery surface —
+        // they must stay reachable even when the hook's guessed root disagrees with
+        // the candidate set, or the escape hatch becomes unreachable exactly when
+        // it's needed. Regular backend tool calls stay strict: a wrong root there
+        // would misroute credentials.
+        let is_meta_tool_call = crate::services::is_meta_tool(&params.name);
         let call_ctx = super::mcpmux_context::take_mcpmux_context(
             &mut arguments,
             session_id,
             &self.services.session_roots,
+            is_meta_tool_call,
         )
         .map_err(|e| McpError::invalid_params(e, None))?;
         if let Some(ctx) = &call_ctx {

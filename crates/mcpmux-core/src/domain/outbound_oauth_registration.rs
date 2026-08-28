@@ -54,7 +54,8 @@ pub struct StoredOAuthMetadata {
 ///
 /// Separate from tokens (in credentials table) so:
 /// - Logout clears tokens but keeps registration
-/// - Re-auth uses existing client_id without new DCR (if port matches)
+/// - Re-auth reuses client_id when redirect_uri matches and the AS still
+///   recognizes it; `invalid_client` drops the row and re-registers
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OutboundOAuthRegistration {
     /// Unique ID for this registration

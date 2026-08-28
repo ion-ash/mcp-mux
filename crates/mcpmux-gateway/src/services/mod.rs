@@ -33,7 +33,9 @@ pub use embedding::{EmbeddingService, EmbeddingState};
 pub use embedding_warmer::EmbeddingWarmer;
 pub use event_emitter::EventEmitter;
 pub use feature_set_resolver::{FeatureSetResolverService, ResolutionSource, ResolvedFeatureSet};
-pub use git_remote::{apply_detected_git_remote, detect_origin_remote};
+pub use git_remote::{
+    apply_detected_git_remote, backfill_missing_git_remotes, detect_origin_remote,
+};
 pub use grant_service::GrantService;
 pub use meta_tools::{
     is_meta_tool, routing_as_invoke_backend, ApprovalBroker, ApprovalDecision, ApprovalPayload,

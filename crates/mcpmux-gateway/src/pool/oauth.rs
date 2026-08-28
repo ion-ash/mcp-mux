@@ -795,7 +795,11 @@ impl OutboundOAuthManager {
             .map_err(|e| anyhow::anyhow!("Failed to get access token: {}", e))
     }
 
-    /// Start OAuth flow for a server using SDK's OAuthState
+    /// Start OAuth flow for a server using SDK's OAuthState.
+    ///
+    /// Reuses a cached DCR `client_id` when the redirect URI matches. If the
+    /// authorization server rejects that id (`invalid_client` / probe), the
+    /// cached registration is dropped and a new DCR runs before the browser opens.
     pub async fn start_oauth_flow(
         &self,
         credential_repo: Arc<dyn CredentialRepository>,
@@ -859,6 +863,19 @@ impl OutboundOAuthManager {
                     }
                     Err(e) => {
                         debug!("[OAuth] Token check failed ({}), starting fresh flow", e);
+                        if oauth_utils::is_stale_oauth_client_error(&e.to_string()) {
+                            warn!(
+                                "[OAuth] Token endpoint rejected cached client for {}/{}; dropping DCR",
+                                space_id, server_id
+                            );
+                            oauth_utils::invalidate_stale_outbound_dcr(
+                                credential_repo.as_ref(),
+                                backend_oauth_repo.as_ref(),
+                                &space_id,
+                                server_id,
+                            )
+                            .await;
+                        }
                     }
                 }
             }
@@ -949,18 +966,18 @@ impl OutboundOAuthManager {
         // e.g., "McpMux (Work)" vs "McpMux (Personal)"
         let client_name = self.get_client_name_for_space(space_id).await;
 
-        // Check if we can reuse existing DCR (redirect_uri must match)
+        // Reuse a cached DCR client only when redirect_uri still matches *and*
+        // the authorization server still recognizes that client_id. A stale
+        // Cloudflare/AS registration otherwise opens /authorize with a dead id.
         let can_reuse_dcr = existing_registration
             .as_ref()
             .map(|reg| reg.matches_redirect_uri(&redirect_uri))
             .unwrap_or(false);
 
-        // Track whether this is a new registration and capture discovered metadata
-        let (is_new_registration, discovered_metadata): (
-            bool,
-            Option<mcpmux_core::StoredOAuthMetadata>,
-        ) = if can_reuse_dcr {
-            // REUSE EXISTING CLIENT_ID - redirect_uri matches!
+        let mut reused_dcr = false;
+        let mut discovered_metadata: Option<mcpmux_core::StoredOAuthMetadata> = None;
+
+        if can_reuse_dcr {
             let reg = existing_registration.as_ref().unwrap();
             info!(
                 "[OAuth] Reusing existing client_id={} for {}/{} (redirect_uri matches)",
@@ -981,7 +998,6 @@ impl OutboundOAuthManager {
             .await;
 
             if let OAuthState::Unauthorized(ref mut manager) = oauth_state {
-                // Discover metadata and configure the existing client
                 self.log(
                     &space_id_str,
                     server_id,
@@ -991,8 +1007,7 @@ impl OutboundOAuthManager {
                 )
                 .await;
 
-                // First discover OAuth metadata to get supported scopes
-                let discovered_metadata = match self
+                let discovered = match self
                     .ensure_metadata_with_origin_fallback(
                         manager,
                         server_url,
@@ -1015,10 +1030,8 @@ impl OutboundOAuthManager {
                     }
                 };
 
-                // Get scopes from discovered metadata
-                let scopes = Self::get_scopes_from_metadata(&discovered_metadata);
+                let scopes = Self::get_scopes_from_metadata(&discovered);
 
-                // Then configure client with the existing registration
                 let mut config = rmcp::transport::auth::OAuthClientConfig::new(
                     reg.client_id.clone(),
                     redirect_uri.clone(),
@@ -1046,42 +1059,84 @@ impl OutboundOAuthManager {
                 )
                 .await;
 
-                // Generate authorization URL with server-supported scopes
                 let scope_refs = Self::scopes_as_refs(&scopes);
                 let auth_url = manager
                     .get_authorization_url(&scope_refs)
                     .await
                     .map_err(|e| anyhow::anyhow!("Failed to get auth URL: {}", e))?;
 
-                // Create session manually (reusing the existing registration).
-                // We already called configure_client + get_authorization_url above,
-                // so we use `for_scope_upgrade` to wrap the pre-computed values without
-                // re-registering the client via DCR.
-                let taken_manager = std::mem::replace(
-                    manager,
-                    rmcp::transport::auth::AuthorizationManager::new(server_url)
-                        .await
-                        .map_err(|e| anyhow::anyhow!("Failed: {}", e))?,
-                );
-                oauth_state = OAuthState::Session(
-                    rmcp::transport::auth::AuthorizationSession::for_scope_upgrade(
-                        taken_manager,
-                        auth_url.clone(),
-                        &redirect_uri,
-                    ),
-                );
+                if oauth_utils::authorize_url_rejects_cached_client(&auth_url).await {
+                    warn!(
+                        "[OAuth] Authorization server rejected client_id={} for {}/{}; re-registering",
+                        reg.client_id, space_id, server_id
+                    );
+                    self.log(
+                        &space_id_str,
+                        server_id,
+                        LogLevel::Warn,
+                        format!(
+                            "Cached DCR client_id rejected by authorization server: {}",
+                            reg.client_id
+                        ),
+                        Some(serde_json::json!({
+                            "client_id": reg.client_id,
+                            "action": "reregister_stale_dcr"
+                        })),
+                    )
+                    .await;
+                    oauth_utils::invalidate_stale_outbound_dcr(
+                        credential_repo.as_ref(),
+                        backend_oauth_repo.as_ref(),
+                        &space_id,
+                        server_id,
+                    )
+                    .await;
+                } else {
+                    let taken_manager = std::mem::replace(
+                        manager,
+                        rmcp::transport::auth::AuthorizationManager::new(server_url)
+                            .await
+                            .map_err(|e| anyhow::anyhow!("Failed: {}", e))?,
+                    );
+                    oauth_state = OAuthState::Session(
+                        rmcp::transport::auth::AuthorizationSession::for_scope_upgrade(
+                            taken_manager,
+                            auth_url.clone(),
+                            &redirect_uri,
+                        ),
+                    );
+                    reused_dcr = true;
+                }
+            } else {
+                reused_dcr = true;
             }
-            (false, None) // Not a new registration, no metadata to save
-        } else {
-            // Need fresh DCR - either no existing registration OR port changed
+        }
+
+        let is_new_registration = !reused_dcr;
+        if !reused_dcr {
+            if can_reuse_dcr {
+                // Probe rejected the cached client. The current manager still has
+                // that client_id configured; start DCR from a clean manager that
+                // still has our credential store.
+                let mut fresh = AuthorizationManager::new(server_url).await?;
+                fresh.set_credential_store(DatabaseCredentialStore::new(
+                    space_id,
+                    server_id,
+                    server_url,
+                    credential_repo.clone(),
+                    backend_oauth_repo.clone(),
+                ));
+                oauth_state = OAuthState::Unauthorized(fresh);
+            }
             if let Some(ref reg) = existing_registration {
-                warn!(
-                    "[OAuth] Port changed! Old redirect_uri={:?}, new={} - deleting old DCR and re-registering",
-                    reg.redirect_uri, redirect_uri
-                );
-                // Delete old registration since port changed
-                if let Err(e) = backend_oauth_repo.delete(&space_id, server_id).await {
-                    warn!("[OAuth] Failed to delete old DCR: {}", e);
+                if !reg.matches_redirect_uri(&redirect_uri) {
+                    warn!(
+                        "[OAuth] Port changed! Old redirect_uri={:?}, new={} - deleting old DCR and re-registering",
+                        reg.redirect_uri, redirect_uri
+                    );
+                    if let Err(e) = backend_oauth_repo.delete(&space_id, server_id).await {
+                        warn!("[OAuth] Failed to delete old DCR: {}", e);
+                    }
                 }
             } else {
                 info!(
@@ -1202,8 +1257,8 @@ impl OutboundOAuthManager {
                     return Err(anyhow::anyhow!("OAuth flow failed: {}", e));
                 }
             }
-            (true, metadata_for_storage) // New registration with discovered metadata
-        };
+            discovered_metadata = metadata_for_storage;
+        }
 
         // Get authorization URL
         let auth_url_result = oauth_state.get_authorization_url().await;
@@ -1284,6 +1339,7 @@ impl OutboundOAuthManager {
         let timeout = self.timeout;
         let completion_tx = self.completion_tx.clone();
         let backend_oauth_repo_clone = backend_oauth_repo.clone();
+        let credential_repo_clone = credential_repo.clone();
         let server_url_clone = server_url.to_string();
         let redirect_uri_clone = redirect_uri.clone();
 
@@ -1344,6 +1400,16 @@ impl OutboundOAuthManager {
                             let _ = log_manager
                                 .append(&space_id_str_clone, &server_id_clone, log)
                                 .await;
+                        }
+
+                        if oauth_utils::is_stale_oauth_client_error(&error_msg) {
+                            oauth_utils::invalidate_stale_outbound_dcr(
+                                credential_repo_clone.as_ref(),
+                                backend_oauth_repo_clone.as_ref(),
+                                &space_id,
+                                &server_id_clone,
+                            )
+                            .await;
                         }
 
                         let _ = completion_tx.send(OAuthCompleteEvent {
@@ -1451,6 +1517,16 @@ impl OutboundOAuthManager {
                             let _ = log_manager
                                 .append(&space_id_str_clone, &server_id_clone, log)
                                 .await;
+                        }
+
+                        if oauth_utils::is_stale_oauth_client_error(&e.to_string()) {
+                            oauth_utils::invalidate_stale_outbound_dcr(
+                                credential_repo_clone.as_ref(),
+                                backend_oauth_repo_clone.as_ref(),
+                                &space_id,
+                                &server_id_clone,
+                            )
+                            .await;
                         }
 
                         let _ = completion_tx.send(OAuthCompleteEvent {

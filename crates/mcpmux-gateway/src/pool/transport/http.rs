@@ -21,6 +21,7 @@ use uuid::Uuid;
 use super::TransportType;
 use super::{create_client_handler, Transport, TransportConnectResult};
 use crate::pool::credential_store::DatabaseCredentialStore;
+use crate::pool::oauth_utils;
 
 /// HTTP transport for Streamable HTTP MCP servers
 ///
@@ -95,8 +96,22 @@ impl HttpTransport {
             "missing or invalid",
             "bearer",
             "unexpected content type",
+            "invalid_client",
         ];
         oauth_indicators.iter().any(|s| error_lower.contains(s))
+    }
+
+    /// Drop a cached DCR client when the AS says it no longer exists.
+    async fn drop_stale_dcr_if_needed(&self, error_str: &str) {
+        if oauth_utils::is_stale_oauth_client_error(error_str) {
+            oauth_utils::invalidate_stale_outbound_dcr(
+                self.credential_repo.as_ref(),
+                self.backend_oauth_repo.as_ref(),
+                &self.space_id,
+                &self.server_id,
+            )
+            .await;
+        }
     }
 
     /// Connect with OAuth using DatabaseCredentialStore (with definition headers if any).
@@ -291,6 +306,7 @@ impl HttpTransport {
                         "Token invalid/expired, re-authentication required".to_string(),
                     )
                     .await;
+                    self.drop_stale_dcr_if_needed(&err_str).await;
                     TransportConnectResult::OAuthRequired {
                         server_url: self.url.clone(),
                     }
@@ -414,6 +430,7 @@ impl HttpTransport {
                         "Token invalid/expired, re-authentication required".to_string(),
                     )
                     .await;
+                    self.drop_stale_dcr_if_needed(&err_str).await;
                     TransportConnectResult::OAuthRequired {
                         server_url: self.url.clone(),
                     }
@@ -858,6 +875,13 @@ mod tests {
         assert!(!HttpTransport::requires_oauth("connection refused"));
         assert!(!HttpTransport::requires_oauth("DNS lookup failed"));
         assert!(!HttpTransport::requires_oauth("timeout"));
+    }
+
+    #[test]
+    fn test_requires_oauth_invalid_client() {
+        assert!(HttpTransport::requires_oauth(
+            "OAuth token refresh failed: invalid_client"
+        ));
     }
 
     // ── build_default_headers tests ──
